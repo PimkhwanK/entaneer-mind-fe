@@ -1,0 +1,90 @@
+import React from 'react';
+import { LogOut, Home, Calendar, User, Users, Settings, FileText, Clock } from 'lucide-react';
+
+interface LayoutProps {
+    children: React.ReactNode;
+    userRole: 'student' | 'counselor' | 'admin' | null;
+    currentPage: string;
+    onNavigate: (page: string) => void;
+    onLogout: () => void;
+}
+
+export function Layout({ children, userRole, currentPage, onNavigate, onLogout }: LayoutProps) {
+    if (!userRole) {
+        return <div className="min-h-screen">{children}</div>;
+    }
+
+    const getNavItems = () => {
+        switch (userRole) {
+            case 'student':
+                return [
+                    { icon: Home, label: 'Home', page: 'student-home' },
+                    { icon: Calendar, label: 'Book Session', page: 'student-booking' },
+                    { icon: FileText, label: 'History', page: 'student-history' },
+                    { icon: User, label: 'Profile', page: 'student-profile' },
+                ];
+            case 'counselor':
+                return [
+                    { icon: Home, label: 'Dashboard', page: 'counselor-dashboard' },
+                    { icon: FileText, label: 'Case Notes', page: 'counselor-notes' },
+                    { icon: Clock, label: 'Manage Schedule', page: 'counselor-schedule' },
+                ];
+            case 'admin':
+                return [
+                    { icon: Home, label: 'Dashboard', page: 'admin-home' },
+                    { icon: Users, label: 'User Management', page: 'admin-users' },
+                ];
+            default:
+                return [];
+        }
+    };
+
+    const navItems = getNavItems();
+
+    return (
+        <div className="min-h-screen flex">
+            {/* Sidebar */}
+            <aside className="w-64 bg-white shadow-sm border-r border-[var(--color-border)] flex flex-col">
+                <div className="p-6 border-b border-[var(--color-border)]">
+                    <h3 className="text-[var(--color-accent-blue)]">Entaneer Mind</h3>
+                    <p className="text-sm text-[var(--color-text-secondary)] mt-1 capitalize">{userRole}</p>
+                </div>
+
+                <nav className="flex-1 p-4 space-y-2">
+                    {navItems.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = currentPage === item.page;
+                        return (
+                            <button
+                                key={item.page}
+                                onClick={() => onNavigate(item.page)}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${isActive
+                                        ? 'bg-[var(--color-mint-green)] text-[var(--color-accent-green)]'
+                                        : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-primary-blue)]'
+                                    }`}
+                            >
+                                <Icon className="w-5 h-5" />
+                                <span>{item.label}</span>
+                            </button>
+                        );
+                    })}
+                </nav>
+
+                <div className="p-4 border-t border-[var(--color-border)]">
+                    <button
+                        onClick={onLogout}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[var(--color-text-secondary)] hover:bg-red-50 hover:text-red-600 transition-all"
+                    >
+                        <LogOut className="w-5 h-5" />
+                        <span>Logout</span>
+                    </button>
+                </div>
+            </aside>
+
+            {/* Main Content */}
+            <main className="flex-1 overflow-auto">
+                {children}
+            </main>
+        </div>
+    );
+}
