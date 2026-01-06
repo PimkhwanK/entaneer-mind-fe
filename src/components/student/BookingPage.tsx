@@ -93,7 +93,7 @@ export function BookingPage({ onBook }: BookingPageProps) {
 
     const handleBooking = async () => {
         if (selectedSlot && description.trim()) {
-            const dateStr = selectedDate.toLocaleDateString('en-US', {
+            const dateStr = selectedDate.toLocaleDateString('th-TH', {
                 month: 'short', day: 'numeric', year: 'numeric'
             });
 
@@ -101,10 +101,10 @@ export function BookingPage({ onBook }: BookingPageProps) {
             if (syncWithGoogle && googleToken) {
                 try {
                     await createGoogleEvent(selectedDate, selectedSlot.time, description, selectedSlot.counselor);
-                    alert('Successfully booked and added to Google Calendar!');
+                    alert('ทำการนัดหมายและบันทึกลง Google Calendar เรียบร้อยแล้ว!');
                 } catch (error) {
                     console.error("Google Sync Error:", error);
-                    alert('Booking saved in system, but failed to sync with Google Calendar.');
+                    alert('นัดหมายสำเร็จ แต่ไม่สามารถบันทึกลงปฏิทิน Google ได้');
                 }
             }
 
@@ -133,8 +133,8 @@ export function BookingPage({ onBook }: BookingPageProps) {
 
     return (
         <div className="p-8 max-w-7xl mx-auto">
-            <h1 className="mb-2 text-3xl font-bold">Book a Session</h1>
-            <p className="mb-8 text-[var(--color-text-secondary)]">Select a date and time that works best for you</p>
+            <h1 className="mb-2 text-3xl font-bold">จองคิวรับคำปรึกษา</h1>
+            <p className="mb-8 text-[var(--color-text-secondary)]">เลือกวันและเวลาที่ท่านสะดวกเพื่อพบผู้ให้คำปรึกษา</p>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
@@ -197,53 +197,53 @@ export function BookingPage({ onBook }: BookingPageProps) {
             </div>
 
             {showDescriptionModal && selectedSlot && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 font-sans">
                     <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full p-8 overflow-hidden animate-in fade-in zoom-in duration-200">
                         <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-2xl font-bold">Booking Details</h3>
-                            <button onClick={() => setShowDescriptionModal(false)} className="p-2 hover:bg-gray-100 rounded-full"><X /></button>
+                            <h3 className="text-2xl font-bold text-gray-800">ยืนยันการนัดหมาย</h3>
+                            <button onClick={() => setShowDescriptionModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X /></button>
                         </div>
 
-                        <div className="mb-6 p-5 bg-[var(--color-primary-blue)] rounded-3xl">
-                            <div className="flex items-center gap-3 mb-2 text-sm font-medium">
-                                <Calendar className="w-4 h-4" /> {selectedDate.toDateString()}
-                                <Clock className="w-4 h-4 ml-2" /> {selectedSlot.time}
+                        <div className="mb-6 p-5 bg-blue-50 rounded-3xl border border-blue-100">
+                            <div className="flex items-center gap-3 mb-2 font-bold text-blue-900">
+                                <Calendar className="w-5 h-5 text-blue-500" /> {selectedDate.toLocaleDateString('th-TH', { dateStyle: 'long' })}
                             </div>
-                            <div className="flex items-center gap-3 text-sm"><User className="w-4 h-4" /> {selectedSlot.counselor}</div>
+                            <div className="flex items-center gap-3 mb-2 font-bold text-blue-900">
+                                <Clock className="w-5 h-5 text-blue-500" /> เวลา {selectedSlot.time} น. (1 ชั่วโมง)
+                            </div>
+                            <div className="flex items-center gap-3 font-bold text-blue-900 text-sm">
+                                <User className="w-5 h-5 text-blue-500" /> ผู้ให้คำปรึกษา: {selectedSlot.counselor}
+                            </div>
                         </div>
 
                         <div className="mb-6">
-                            <label className="block text-sm font-medium mb-2 text-gray-600">What's on your mind?</label>
+                            <label className="block text-sm font-bold mb-2 text-gray-600">เรื่องที่ต้องการปรึกษาเบื้องต้น</label>
                             <textarea
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
-                                className="w-full p-4 rounded-2xl border border-gray-200 focus:ring-2 focus:ring-[var(--color-accent-green)] outline-none min-h-[120px] resize-none"
-                                placeholder="Briefly describe your concern..."
+                                className="w-full p-4 rounded-2xl border border-gray-200 focus:ring-2 focus:ring-green-500 outline-none min-h-[120px] resize-none text-gray-700"
+                                placeholder="พิมพ์สิ่งที่ท่านกังวลหรือต้องการปรึกษาเพื่อเตรียมการล่วงหน้า..."
                             />
                         </div>
 
-                        <div
-                            onClick={handleGoogleToggle}
-                            className={`mb-8 p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${syncWithGoogle ? 'border-[var(--color-accent-green)] bg-green-50' : 'border-gray-100 hover:border-gray-200'
-                                }`}
-                        >
+                        <div onClick={handleGoogleToggle} className={`mb-8 p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${syncWithGoogle ? 'border-green-500 bg-green-50' : 'border-gray-100 hover:border-gray-200'}`}>
                             <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-lg ${syncWithGoogle ? 'bg-[var(--color-accent-green)] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                                <div className={`p-2 rounded-lg ${syncWithGoogle ? 'bg-green-500 text-white shadow-sm' : 'bg-gray-100 text-gray-400'}`}>
                                     <Bell className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <div className="text-sm font-bold">Notify via Google Calendar</div>
-                                    <div className="text-xs text-gray-500">Sync this appointment to your Gmail</div>
+                                    <div className="text-sm font-bold text-gray-800">ซิงค์กับ Google Calendar</div>
+                                    <div className="text-xs text-gray-500">บันทึกลงปฏิทินเพื่อรับการแจ้งเตือนผ่าน Gmail</div>
                                 </div>
                             </div>
-                            <div className={`w-12 h-6 rounded-full relative transition-colors ${syncWithGoogle ? 'bg-[var(--color-accent-green)]' : 'bg-gray-200'}`}>
+                            <div className={`w-12 h-6 rounded-full relative transition-colors ${syncWithGoogle ? 'bg-green-500' : 'bg-gray-200'}`}>
                                 <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${syncWithGoogle ? 'left-7' : 'left-1'}`} />
                             </div>
                         </div>
 
-                        <div className="flex gap-3">
-                            <button onClick={() => setShowDescriptionModal(false)} className="flex-1 py-4 font-bold text-gray-500 hover:bg-gray-50 rounded-2xl">Cancel</button>
-                            <button onClick={handleBooking} className="flex-1 py-4 font-bold bg-[var(--color-accent-green)] text-white rounded-2xl shadow-lg hover:opacity-90 transition-opacity">Confirm Booking</button>
+                        <div className="flex gap-3 mt-4">
+                            <button onClick={() => setShowDescriptionModal(false)} className="flex-1 py-4 font-bold text-gray-400 hover:text-gray-600 transition-colors">ยกเลิก</button>
+                            <button onClick={handleBooking} className="flex-1 py-4 font-bold bg-green-500 text-white rounded-2xl shadow-lg hover:bg-green-600 transition-all">ยืนยันการจองคิว</button>
                         </div>
                     </div>
                 </div>
