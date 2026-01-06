@@ -4,6 +4,7 @@ import { LoginPage } from './components/LoginPage';
 import { Layout } from './components/Layout';
 import { PDPAModal } from './components/PDPAModal';
 import { TokenModal } from './components/TokenModal';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 
 // Student Components
 import { StudentHome } from './components/student/StudentHome';
@@ -316,7 +317,7 @@ export default function App() {
   }
 
   return (
-    <>
+    <GoogleOAuthProvider clientId="633019458862-cfrtd22t900o6595dqou4v9os1ba800q.apps.googleusercontent.com">
       <Layout
         userRole={userRole}
         currentPage={currentPage}
@@ -328,6 +329,6 @@ export default function App() {
 
       {showPDPA && <PDPAModal onAccept={handlePDPAAccept} />}
       {showToken && <TokenModal onSubmit={handleTokenSubmit} />}
-    </>
+    </GoogleOAuthProvider>
   );
 }
