@@ -16,17 +16,17 @@ export function LandingPage({ onLogin }: LandingPageProps) {
                     </div>
                     <h1 className="mb-4">Entaneer Mind</h1>
                     <p className="text-xl">
-                        Your safe space for mental wellness and support
+                        พื้นที่ปลอดภัยเพื่อสุขภาพจิตที่ดีและแรงใจสำหรับคุณ
                     </p>
                 </div>
 
                 {/* Welcome Card */}
                 <div className="bg-white rounded-3xl p-8 md:p-12 shadow-lg mb-8">
                     <div className="text-center mb-8">
-                        <h2 className="mb-4">Welcome to a calmer mind</h2>
+                        <h2 className="mb-4">ยินดีต้อนรับสู่พื้นที่พักใจ</h2>
                         <p className="text-lg">
-                            Connect with professional counselors who understand your journey.
-                            Your mental health matters, and we're here to help.
+                            เชื่อมต่อกับนักจิตวิทยาและผู้ให้คำปรึกษาที่พร้อมรับฟังและเข้าใจในทุกย่างก้าวของคุณ<br />
+                            เพราะสุขภาพจิตของคุณสำคัญ และเราพร้อมที่จะอยู่เคียงข้าง
                         </p>
                     </div>
 
@@ -36,9 +36,9 @@ export function LandingPage({ onLogin }: LandingPageProps) {
                             <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[var(--color-mint-green)] flex items-center justify-center">
                                 <Shield className="w-6 h-6 text-[var(--color-accent-green)]" />
                             </div>
-                            <h4 className="mb-2">Confidential</h4>
+                            <h4 className="mb-2">รักษาความลับ</h4>
                             <p className="text-sm">
-                                Your privacy is protected under professional ethics and PDPA
+                                ความเป็นส่วนตัวของคุณจะได้รับการคุ้มครองภายใต้จรรยาบรรณวิชาชีพและ PDPA
                             </p>
                         </div>
 
@@ -46,9 +46,9 @@ export function LandingPage({ onLogin }: LandingPageProps) {
                             <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[var(--color-mint-green)] flex items-center justify-center">
                                 <Heart className="w-6 h-6 text-[var(--color-accent-green)]" />
                             </div>
-                            <h4 className="mb-2">Professional</h4>
+                            <h4 className="mb-2">มืออาชีพ</h4>
                             <p className="text-sm">
-                                Licensed counselors trained in mental health support
+                                ดูแลโดยนักจิตวิทยาและผู้ให้คำปรึกษาที่ผ่านการฝึกฝนมาโดยเฉพาะ
                             </p>
                         </div>
 
@@ -56,9 +56,9 @@ export function LandingPage({ onLogin }: LandingPageProps) {
                             <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[var(--color-mint-green)] flex items-center justify-center">
                                 <Calendar className="w-6 h-6 text-[var(--color-accent-green)]" />
                             </div>
-                            <h4 className="mb-2">Flexible</h4>
+                            <h4 className="mb-2">ยืดหยุ่น</h4>
                             <p className="text-sm">
-                                Book sessions at times that work for your schedule
+                                เลือกวันและเวลาที่สะดวกตามตารางเรียนของคุณได้อย่างง่ายดาย
                             </p>
                         </div>
                     </div>
@@ -68,11 +68,11 @@ export function LandingPage({ onLogin }: LandingPageProps) {
                         onClick={onLogin}
                         className="w-full bg-gradient-to-r from-[var(--color-accent-blue)] to-[var(--color-accent-green)] text-white py-4 rounded-2xl hover:opacity-90 transition-opacity shadow-md"
                     >
-                        Login with CMU Account
+                        เข้าสู่ระบบด้วย CMU Account
                     </button>
 
                     <p className="text-sm text-[var(--color-text-secondary)] text-center mt-4">
-                        Secure authentication through CMU credentials
+                        ยืนยันตัวตนอย่างปลอดภัยผ่านระบบสำนักบริการเทคโนโลยีสารสนเทศ มช.
                     </p>
                 </div>
 
@@ -80,7 +80,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
                 <div className="text-center bg-[var(--color-mint-green)] rounded-3xl p-6">
                     <p className="text-sm">
                         <span className="text-[var(--color-accent-green)]">💚</span> You're not alone in this journey.
-                        Seeking help is a sign of strength, not weakness.
+                        คุณไม่ได้เดินเพียงลำพัง การขอความช่วยเหลือคือความกล้าหาญอย่างหนึ่ง
                     </p>
                 </div>
             </div>
