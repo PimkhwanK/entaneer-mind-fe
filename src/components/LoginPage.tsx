@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, User, Lock, ArrowLeft } from 'lucide-react';
+import { Heart, User, Lock, ArrowLeft} from 'lucide-react';
 
 interface LoginPageProps {
     onLogin: (email: string, password: string, role: 'student' | 'counselor' | 'admin') => void;
@@ -12,20 +12,26 @@ export function LoginPage({ onLogin, onBack }: LoginPageProps) {
     const [role, setRole] = useState<'student' | 'counselor' | 'admin'>('student');
 
     const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onLogin(email, password, role);
+        try{
+            e.preventDefault();
+            onLogin(email, password, role);
+        }catch(error){
+            console.error("Failed to log-in:", error);
+        }
     };
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4">
             <div className="max-w-md w-full">
                 {/* Back Button */}
+
                 <button
                     onClick={onBack}
                     className="flex items-center gap-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] mb-6 transition-colors"
                 >
                     <ArrowLeft className="w-4 h-4" />
-                    Back to home
+                    {/*"Back to LandingPage"*/}
+                    {"กลับสู่แลนดิ้งเพจ"}
                 </button>
 
                 {/* Logo */}
@@ -33,8 +39,8 @@ export function LoginPage({ onLogin, onBack }: LoginPageProps) {
                     <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-[var(--color-accent-blue)] to-[var(--color-accent-green)] flex items-center justify-center">
                         <Heart className="w-8 h-8 text-white" />
                     </div>
-                    <h2 className="mb-2">Welcome Back</h2>
-                    <p>Sign in to continue to Entaneer Mind</p>
+                    <h2 className="mb-2">{/*Welcome Back*/}{'ยินดีต้อนรับกลับมา'}</h2>
+                    <p>{/*'Sign in to continue to Entaneer Mind'*/}{'เข้าสู่ระบบเพื่อใช้งาน Entaneer Mind'}</p>
                 </div>
 
                 {/* Login Form */}
@@ -43,7 +49,7 @@ export function LoginPage({ onLogin, onBack }: LoginPageProps) {
                         {/* Role Selection */}
                         <div>
                             <label className="block text-sm mb-2 text-[var(--color-text-secondary)]">
-                                I am a...
+                                {/*I am a...*/}{'ฉันคือ...'}
                             </label>
                             <div className="grid grid-cols-3 gap-2">
                                 {(['student', 'counselor', 'admin'] as const).map((r) => (
@@ -98,18 +104,28 @@ export function LoginPage({ onLogin, onBack }: LoginPageProps) {
                             </div>
                         </div>
 
+                        {/* Password */}
+                        <label className="block text-m mb-2 text-[var(--color-text-secondary)]">
+                            <input
+                            type="checkbox" 
+                            name='remember me'
+                            className="w-4 h-4"
+                            />     
+                            <span className='py-3'> {/*Remember me*/} {'จดจำฉันไว้'}</span>
+                        </label>
+
                         {/* Submit Button */}
                         <button
                             type="submit"
                             className="w-full bg-gradient-to-r from-[var(--color-accent-blue)] to-[var(--color-accent-green)] text-white py-4 rounded-2xl hover:opacity-90 transition-opacity"
                         >
-                            Sign In with CMU OAuth
+                            {/*Sign In with CMU OAuth*/}{'เข้าสู่ระบบด้วย CMU OAuth'}
                         </button>
                     </form>
 
                     <div className="mt-6 text-center">
                         <p className="text-sm text-[var(--color-text-secondary)]">
-                            Using CMU single sign-on (OAuth)
+                            {/*Using CMU single sign-on (OAuth)*/} {'ใช้งานการเข้าสู่ระบบครั้งเดียวของ CMU (OAuth) '}
                         </p>
                     </div>
                 </div>
