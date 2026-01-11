@@ -6,15 +6,22 @@ interface TimeSlot {
     time: string;
     available: boolean;
     counselor: string;
+    day?: string; // เพิ่มรองรับการระบุวัน
 }
 
 interface BookingPageProps {
     onBook: (date: string, time: string, details: any) => void;
     onNavigateToHistory: () => void;
     hasExistingBooking?: boolean;
+    schedule?: TimeSlot[]; // รับข้อมูลตารางเวลาจากภายนอกแทน mockup
 }
 
-export function BookingPage({ onBook, onNavigateToHistory, hasExistingBooking = false }: BookingPageProps) {
+export function BookingPage({
+    onBook,
+    onNavigateToHistory,
+    hasExistingBooking = false,
+    schedule = [] // Default เป็นอาเรย์ว่าง
+}: BookingPageProps) {
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
     const [selectedCounselor, setSelectedCounselor] = useState('พี่ป๊อป (ห้อง 1)');
@@ -37,14 +44,10 @@ export function BookingPage({ onBook, onNavigateToHistory, hasExistingBooking = 
 
     const counselors = Object.keys(counselorData);
 
-    const timeSlots: TimeSlot[] = [
-        { time: '09:00', available: true, counselor: selectedCounselor },
-        { time: '10:00', available: false, counselor: selectedCounselor },
-        { time: '11:00', available: true, counselor: selectedCounselor },
-        { time: '13:00', available: true, counselor: selectedCounselor },
-        { time: '14:00', available: true, counselor: selectedCounselor },
-        { time: '15:00', available: false, counselor: selectedCounselor },
-    ];
+    // กรองเวลาเฉพาะของผู้ให้คำปรึกษาที่เลือก และ (ถ้ามี logic เรื่องวัน) สามารถกรองวันที่เลือกได้ที่นี่
+    const filteredTimeSlots = schedule.filter(slot =>
+        slot.counselor === selectedCounselor
+    );
 
     const handleStudentIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value.replace(/\D/g, '');
@@ -60,7 +63,6 @@ export function BookingPage({ onBook, onNavigateToHistory, hasExistingBooking = 
         }
     };
 
-    // แก้ไข: ให้ฟังก์ชันนี้คืนค่า Google Event Data เพื่อเอา Event ID ไปใช้ยกเลิกภายหลัง
     const createGoogleEvent = async (date: Date, time: string, info: any, counselorName: string) => {
         const [hours, minutes] = time.split(':');
         const startDateTime = new Date(date);
@@ -99,7 +101,7 @@ export function BookingPage({ onBook, onNavigateToHistory, hasExistingBooking = 
 
         if (!response.ok) throw new Error('Failed to create Google event');
         const data = await response.json();
-        return data.id; // ส่ง ID ของ Event กลับไปบันทึก
+        return data.id;
     };
 
     const loginToGoogle = useGoogleLogin({
@@ -129,14 +131,12 @@ export function BookingPage({ onBook, onNavigateToHistory, hasExistingBooking = 
 
             if (syncWithGoogle && googleToken) {
                 try {
-                    // เก็บ Event ID ไว้เพื่อส่งต่อให้ฟังก์ชัน onBook
                     googleEventId = await createGoogleEvent(selectedDate, selectedSlot.time, studentInfo, selectedCounselor);
                 } catch (error) {
                     console.error("Google Sync Error:", error);
                 }
             }
 
-            // ส่งข้อมูลทั้งหมดรวมถึง googleEventId และ token เพื่อใช้ในการยกเลิก (Cancel) ในหน้า History
             onBook(dateStr, selectedSlot.time, {
                 ...studentInfo,
                 googleEventId,
@@ -178,7 +178,6 @@ export function BookingPage({ onBook, onNavigateToHistory, hasExistingBooking = 
                 <ArrowRight className="w-5 h-5 text-amber-400" />
             </div>
 
-            {/* 1. เลือกผู้ให้คำปรึกษา */}
             <section className="mb-10">
                 <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-gray-700">
                     <User className="w-5 h-5 text-green-600" /> 1. เลือกผู้ให้คำปรึกษา
@@ -200,7 +199,6 @@ export function BookingPage({ onBook, onNavigateToHistory, hasExistingBooking = 
             </section>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                {/* 2. เลือกวันที่ */}
                 <section>
                     <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-gray-700">
                         <Calendar className="w-5 h-5 text-green-600" /> 2. เลือกวันที่
@@ -233,7 +231,6 @@ export function BookingPage({ onBook, onNavigateToHistory, hasExistingBooking = 
                     </div>
                 </section>
 
-                {/* 3. เลือกเวลา */}
                 <section>
                     <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-gray-700">
                         <Clock className="w-5 h-5 text-green-600" /> 3. เลือกเวลา
@@ -241,28 +238,34 @@ export function BookingPage({ onBook, onNavigateToHistory, hasExistingBooking = 
                     <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-50 h-[460px] flex flex-col">
                         <div className="mb-4 text-sm text-gray-400 font-medium">ตารางเวลาสำหรับ {selectedDate.toLocaleDateString('th-TH', { dateStyle: 'long' })}</div>
                         <div className="space-y-3 overflow-y-auto pr-2 custom-scrollbar">
-                            {timeSlots.map((slot, i) => (
-                                <button
-                                    key={i}
-                                    disabled={!slot.available || hasExistingBooking}
-                                    onClick={() => { setSelectedSlot(slot); setShowDescriptionModal(true); }}
-                                    className={`w-full p-5 rounded-2xl flex items-center justify-between border-2 transition-all ${slot.available ? 'border-gray-50 bg-gray-50 hover:border-green-500 hover:bg-white' : 'bg-gray-50 opacity-40 cursor-not-allowed'}`}
-                                >
-                                    <div className="flex items-center gap-4">
-                                        <div className={`w-2 h-2 rounded-full ${slot.available ? 'bg-green-500' : 'bg-gray-400'}`} />
-                                        <span className="font-bold text-gray-700 text-lg">{slot.time} น.</span>
-                                    </div>
-                                    <span className={`text-xs font-bold px-4 py-1.5 rounded-full ${slot.available ? 'bg-white text-green-600 border border-green-100' : 'bg-gray-200 text-gray-500'}`}>
-                                        {slot.available ? 'ว่างสำหรับการจอง' : 'มีผู้จองแล้ว'}
-                                    </span>
-                                </button>
-                            ))}
+                            {filteredTimeSlots.length > 0 ? (
+                                filteredTimeSlots.map((slot, i) => (
+                                    <button
+                                        key={i}
+                                        disabled={!slot.available || hasExistingBooking}
+                                        onClick={() => { setSelectedSlot(slot); setShowDescriptionModal(true); }}
+                                        className={`w-full p-5 rounded-2xl flex items-center justify-between border-2 transition-all ${slot.available ? 'border-gray-50 bg-gray-50 hover:border-green-500 hover:bg-white' : 'bg-gray-50 opacity-40 cursor-not-allowed'}`}
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className={`w-2 h-2 rounded-full ${slot.available ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                            <span className="font-bold text-gray-700 text-lg">{slot.time} น.</span>
+                                        </div>
+                                        <span className={`text-xs font-bold px-4 py-1.5 rounded-full ${slot.available ? 'bg-white text-green-600 border border-green-100' : 'bg-gray-200 text-gray-500'}`}>
+                                            {slot.available ? 'ว่างสำหรับการจอง' : 'มีผู้จองแล้ว'}
+                                        </span>
+                                    </button>
+                                ))
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
+                                    <Calendar className="w-8 h-8 opacity-20" />
+                                    <p className="text-sm">ไม่มีตารางเวลาสำหรับผู้ให้คำปรึกษานี้</p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </section>
             </div>
 
-            {/* Modal ยืนยันข้อมูล */}
             {showDescriptionModal && selectedSlot && (
                 <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-[3rem] shadow-2xl max-w-md w-full p-10 max-h-[90vh] overflow-y-auto">

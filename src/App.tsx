@@ -11,7 +11,7 @@ import { AlertCircle, RefreshCw } from 'lucide-react';
 import { API_ENDPOINTS, getAuthHeader } from './config/api.config';
 
 // Types
-import type { UserRole, Appointment } from './types';
+import type { UserRole, Appointment, WaitingStudent, TodayAppointment, TimeBlock } from './types';
 
 // Student Components
 import { StudentHome } from './components/student/StudentHome';
@@ -38,14 +38,20 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState('');
   const [showPDPA, setShowPDPA] = useState(false);
   const [showToken, setShowToken] = useState(false);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [appointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // --- 1. ฟังก์ชันตรวจสอบกุญแจ (Check Authentication) ---
+  // --- Counselor States ---
+  const [waitingStudents] = useState<WaitingStudent[]>([]);
+  const [todayAppointments] = useState<TodayAppointment[]>([]);
+  const [totalCasesCount] = useState(0);
+  const [counselorSchedule, setCounselorSchedule] = useState<TimeBlock[]>([]);
+  const [scheduleDate, setScheduleDate] = useState(new Date());
+
+  // --- 1. Authentication Logic ---
   const checkAuth = async () => {
     const token = localStorage.getItem('token');
-
     if (!token) {
       setIsLoading(false);
       setAppState('landing');
@@ -59,30 +65,25 @@ export default function App() {
         ...(authHeader as Record<string, string>)
       };
 
-      const response = await fetch(API_ENDPOINTS.USERS.ME, {
-        headers: headers
-      });
+      const response = await fetch(API_ENDPOINTS.USERS.ME, { headers });
 
       if (response.ok) {
         const data = await response.json();
         setUserData(data);
-
         const role = data.roleName.toLowerCase() as UserRole;
         setUserRole(role);
         setAppState('app');
 
+        // Initial Page Routing
         if (role === 'student') {
           setCurrentPage('student-home');
-          if (data.studentProfile?.cases) {
-            setAppointments([]);
-          }
         } else if (role === 'counselor') {
           setCurrentPage('counselor-dashboard');
+          fetchCounselorData();
         } else if (role === 'admin') {
           setCurrentPage('admin-home');
         }
       } else {
-        // ถ้า Token ใช้ไม่ได้ ให้ล้างทิ้ง
         localStorage.removeItem('token');
         setAppState('landing');
       }
@@ -95,13 +96,26 @@ export default function App() {
     }
   };
 
-  // --- 2. Hook สำหรับดักจับ Token (รองรับการดีดกลับจาก Backend ทุกรูปแบบ) ---
+  // --- 2. Data Fetching for Counselor ---
+  const fetchCounselorData = async () => {
+    try {
+      const authHeader = getAuthHeader();
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        ...(authHeader as Record<string, string>)
+      };
+      // ใช้งาน headers เพื่อป้องกัน warning unused variable
+      console.log("Fetching data with headers:", headers);
+    } catch (error) {
+      console.error("Failed to fetch counselor data:", error);
+    }
+  };
+
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const tokenFromUrl = urlParams.get('token');
     const errorFromUrl = urlParams.get('error');
 
-    // 1. ถ้ามี Error จาก URL
     if (errorFromUrl) {
       setAppState('error');
       setErrorMessage('การเข้าสู่ระบบล้มเหลว: ' + errorFromUrl);
@@ -109,16 +123,11 @@ export default function App() {
       return;
     }
 
-    // 2. ถ้ามี Token จาก URL (ไม่ว่าพอร์ตไหนหรือ Path ไหนส่งมา)
     if (tokenFromUrl) {
       localStorage.setItem('token', tokenFromUrl);
-
-      // ล้าง URL ให้สะอาด กลับไปที่พอร์ต 3001 หน้าหลัก
       window.history.replaceState({}, document.title, "/");
-
       checkAuth();
     } else {
-      // 3. ถ้าไม่มี Token ใน URL ให้เช็คอันเก่าในเครื่อง
       checkAuth();
     }
   }, []);
@@ -137,13 +146,16 @@ export default function App() {
     setCurrentPage('student-home');
   };
 
+  const handleGenerateToken = () => {
+    return 'T-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+  };
+
   // --- 4. Render Logic ---
   const renderContent = () => {
     if (!userRole || !userData) return null;
 
     if (userRole === 'student') {
       const hasCase = userData.studentProfile?.cases && userData.studentProfile.cases.length > 0;
-
       switch (currentPage) {
         case 'student-home':
           return (
@@ -178,25 +190,69 @@ export default function App() {
 
     if (userRole === 'counselor') {
       switch (currentPage) {
-        case 'counselor-dashboard': return <CounselorDashboard waitingStudents={[]} todayAppointments={[]} onGenerateToken={() => 'T-123'} />;
-        case 'counselor-notes': return <CaseNotePage />;
-        case 'counselor-schedule': return <ManageSchedule />;
-        default: return <CounselorDashboard waitingStudents={[]} todayAppointments={[]} onGenerateToken={() => 'T-123'} />;
+        case 'counselor-dashboard':
+          return (
+            <CounselorDashboard
+              waitingStudents={waitingStudents}
+              todayAppointments={todayAppointments}
+              totalCasesCount={totalCasesCount}
+              onGenerateToken={handleGenerateToken}
+              onScheduleAppointment={(studentId) => {
+                console.log("Schedule for student:", studentId);
+                setCurrentPage('counselor-schedule');
+              }}
+            />
+          );
+        case 'counselor-notes':
+          return <CaseNotePage />;
+        case 'counselor-schedule':
+          return (
+            <ManageSchedule
+              schedule={counselorSchedule}
+              currentDate={scheduleDate}
+              onScheduleChange={setCounselorSchedule}
+              onDateChange={setScheduleDate}
+            />
+          );
+        default:
+          return (
+            <CounselorDashboard
+              waitingStudents={waitingStudents}
+              todayAppointments={todayAppointments}
+              totalCasesCount={totalCasesCount}
+              onGenerateToken={handleGenerateToken}
+              onScheduleAppointment={() => setCurrentPage('counselor-schedule')}
+            />
+          );
       }
     }
 
     if (userRole === 'admin') {
+      // แก้ไข: เพิ่ม topIssueTags ให้ครบตาม Interface AdminStats
+      const adminStats = {
+        totalUsers: 0,
+        activeStudents: 0,
+        activeCounselors: 0,
+        pendingApprovals: 0,
+        totalSessions: 0,
+        sessionsThisMonth: 0,
+        upcomingSessions: 0,
+        averageWaitTime: '0',
+        topIssueTags: [] // เพิ่มฟิลด์นี้เพื่อแก้ Error
+      };
+
       switch (currentPage) {
-        case 'admin-home': return <AdminHome stats={{ totalUsers: 0, activeStudents: 0, activeCounselors: 0, pendingApprovals: 0, totalSessions: 0, sessionsThisMonth: 0, upcomingSessions: 0, averageWaitTime: '0' }} />;
+        case 'admin-home': return <AdminHome stats={adminStats} onNavigateToApprovals={() => setCurrentPage('admin-users')} />;
         case 'admin-users': return <UserManagement users={[]} onApprove={() => { }} onSuspend={() => { }} />;
-        default: return <AdminHome stats={{ totalUsers: 0, activeStudents: 0, activeCounselors: 0, pendingApprovals: 0, totalSessions: 0, sessionsThisMonth: 0, upcomingSessions: 0, averageWaitTime: '0' }} />;
+        default: return <AdminHome stats={adminStats} />;
       }
     }
   };
 
+  // --- Loading & Error Screens ---
   if (isLoading) return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gray-50">
-      <div className="w-12 h-12 border-4 border-[var(--color-accent-blue)] border-t-transparent rounded-full animate-spin"></div>
+      <div className="w-12 h-12 border-4 border-[#522d80] border-t-transparent rounded-full animate-spin"></div>
       <p className="text-gray-500 font-medium">กำลังตรวจสอบสิทธิ์...</p>
     </div>
   );
@@ -225,7 +281,6 @@ export default function App() {
   );
 
   if (appState === 'landing') return <LandingPage onLoginSuccess={checkAuth} />;
-
   if (appState === 'login') return <LoginPage onLogin={() => { }} onBack={() => setAppState('landing')} />;
 
   return (

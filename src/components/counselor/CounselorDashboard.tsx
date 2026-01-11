@@ -1,31 +1,35 @@
 import React, { useState } from 'react';
 import { Calendar, Clock, User, Users, Key, Copy, CheckCircle, AlertCircle } from 'lucide-react';
 
-interface WaitingStudent {
+export interface WaitingStudent {
     id: string;
     name: string;
     waitingSince: string;
     urgency: 'low' | 'medium' | 'high';
 }
 
-interface TodayAppointment {
+export interface TodayAppointment {
     id: string;
     time: string;
     studentName: string;
     status: 'pending' | 'in-progress' | 'completed';
-    caseCode: string; // เพิ่ม Case Code ตาม Scope
+    caseCode: string;
 }
 
 interface CounselorDashboardProps {
     waitingStudents: WaitingStudent[];
     todayAppointments: TodayAppointment[];
+    totalCasesCount: number;
     onGenerateToken: () => string;
+    onScheduleAppointment?: (studentId: string) => void;
 }
 
 export function CounselorDashboard({
     waitingStudents,
     todayAppointments,
-    onGenerateToken
+    totalCasesCount,
+    onGenerateToken,
+    onScheduleAppointment
 }: CounselorDashboardProps) {
     const [generatedToken, setGeneratedToken] = useState<string | null>(null);
     const [copiedToken, setCopiedToken] = useState(false);
@@ -87,7 +91,6 @@ export function CounselorDashboard({
                 <p className="text-[var(--color-text-secondary)] text-sm">จัดการตารางนัดหมายและบันทึกเคสนักศึกษาในความดูแลของคุณ</p>
             </header>
 
-            {/* Quick Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
                     <div className="flex items-center gap-3 mb-2">
@@ -128,58 +131,37 @@ export function CounselorDashboard({
                         </div>
                         <h4 className="font-medium">เคสทั้งหมด</h4>
                     </div>
-                    <p className="text-3xl font-bold text-[var(--color-text-primary)] ml-13">42</p>
+                    <p className="text-3xl font-bold text-[var(--color-text-primary)] ml-13">{totalCasesCount}</p>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                {/* Token Generator (Registration Code ตาม Scope) */}
                 <div className="lg:col-span-1 bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
                     <div className="flex items-center gap-2 mb-4">
                         <Key className="w-5 h-5 text-[var(--color-accent-green)]" />
                         <h3 className="font-bold">สร้างรหัสลงทะเบียน (Token)</h3>
                     </div>
-                    <p className="text-sm text-[var(--color-text-secondary)] mb-6">
-                        สร้างรหัสเฉพาะสำหรับนักศึกษาใหม่ เพื่อใช้ลงทะเบียนเข้าสู่ระบบครั้งแรก (คัดกรองเบื้องต้นโดยพี่ป๊อป)
-                    </p>
-
-                    <button
-                        onClick={handleGenerateToken}
-                        className="w-full bg-[var(--color-accent-green)] text-white py-3 rounded-2xl hover:opacity-90 transition-opacity mb-4 font-medium"
-                    >
+                    <p className="text-sm text-[var(--color-text-secondary)] mb-6">สร้างรหัสเฉพาะสำหรับนักศึกษาใหม่</p>
+                    <button onClick={handleGenerateToken} className="w-full bg-[var(--color-accent-green)] text-white py-3 rounded-2xl hover:opacity-90 transition-opacity mb-4 font-medium">
                         สร้างรหัสลงทะเบียนใหม่
                     </button>
-
                     {generatedToken && (
                         <div className="bg-gray-50 border border-dashed border-gray-300 rounded-2xl p-4">
-                            <p className="text-xs text-[var(--color-text-secondary)] mb-2">รหัสสำหรับส่งให้นักศึกษา:</p>
                             <div className="flex items-center gap-2">
-                                <code className="flex-1 bg-white px-3 py-2 rounded-xl text-sm font-mono break-all border border-gray-100">
-                                    {generatedToken}
-                                </code>
-                                <button
-                                    onClick={handleCopyToken}
-                                    className="p-2 hover:bg-white rounded-xl transition-colors shadow-sm"
-                                    title="คัดลอกรหัส"
-                                >
-                                    {copiedToken ? (
-                                        <CheckCircle className="w-5 h-5 text-green-600" />
-                                    ) : (
-                                        <Copy className="w-5 h-5 text-[var(--color-accent-blue)]" />
-                                    )}
+                                <code className="flex-1 bg-white px-3 py-2 rounded-xl text-sm font-mono break-all border border-gray-100">{generatedToken}</code>
+                                <button onClick={handleCopyToken} className="p-2 hover:bg-white rounded-xl transition-colors shadow-sm">
+                                    {copiedToken ? <CheckCircle className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5 text-[var(--color-accent-blue)]" />}
                                 </button>
                             </div>
                         </div>
                     )}
                 </div>
 
-                {/* Today's Schedule */}
                 <div className="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
                     <div className="flex items-center gap-2 mb-4">
                         <Calendar className="w-5 h-5 text-[var(--color-accent-blue)]" />
                         <h3 className="font-bold">ตารางนัดหมายวันนี้</h3>
                     </div>
-
                     {todayAppointments.length === 0 ? (
                         <div className="text-center py-12 text-gray-400">
                             <Clock className="w-12 h-12 mx-auto mb-3 opacity-20" />
@@ -188,13 +170,8 @@ export function CounselorDashboard({
                     ) : (
                         <div className="space-y-3">
                             {todayAppointments.map((apt) => (
-                                <div
-                                    key={apt.id}
-                                    className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:border-[var(--color-accent-blue)] transition-colors"
-                                >
-                                    <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm">
-                                        <User className="w-6 h-6 text-gray-400" />
-                                    </div>
+                                <div key={apt.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:border-[var(--color-accent-blue)] transition-colors">
+                                    <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm"><User className="w-6 h-6 text-gray-400" /></div>
                                     <div className="flex-1">
                                         <div className="flex items-center gap-2">
                                             <h4 className="font-bold text-[var(--color-text-primary)]">{apt.studentName}</h4>
@@ -205,9 +182,7 @@ export function CounselorDashboard({
                                             <span className="text-sm text-[var(--color-text-secondary)]">{apt.time} น.</span>
                                         </div>
                                     </div>
-                                    <span className={`px-4 py-1.5 rounded-full text-xs font-medium ${getStatusColor(apt.status)}`}>
-                                        {getStatusLabel(apt.status)}
-                                    </span>
+                                    <span className={`px-4 py-1.5 rounded-full text-xs font-medium ${getStatusColor(apt.status)}`}>{getStatusLabel(apt.status)}</span>
                                 </div>
                             ))}
                         </div>
@@ -215,22 +190,14 @@ export function CounselorDashboard({
                 </div>
             </div>
 
-            {/* Waiting Students (คิวรอคัดกรอง) */}
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
-                <div className="flex items-center gap-2 mb-4">
-                    <AlertCircle className="w-5 h-5 text-[var(--color-accent-green)]" />
-                    <h3 className="font-bold">นักศึกษาที่รอการจัดคิว (คัดกรองเบื้องต้นแล้ว)</h3>
-                </div>
-
+                <div className="flex items-center gap-2 mb-4"><AlertCircle className="w-5 h-5 text-[var(--color-accent-green)]" /><h3 className="font-bold">นักศึกษาที่รอการจัดคิว</h3></div>
                 {waitingStudents.length === 0 ? (
-                    <div className="text-center py-12 text-gray-400">
-                        <Users className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                        <p>ไม่มีนักศึกษารอคิวในขณะนี้</p>
-                    </div>
+                    <div className="text-center py-12 text-gray-400"><Users className="w-12 h-12 mx-auto mb-3 opacity-20" /><p>ไม่มีนักศึกษารอคิวในขณะนี้</p></div>
                 ) : (
                     <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="text-sm text-gray-500 border-b border-[var(--color-border)] text-left">
+                        <table className="w-full text-left">
+                            <thead className="text-sm text-gray-500 border-b border-[var(--color-border)]">
                                 <tr>
                                     <th className="px-4 py-4 font-medium">ชื่อนักศึกษา</th>
                                     <th className="px-4 py-4 font-medium">รอคิวตั้งแต่</th>
@@ -241,27 +208,10 @@ export function CounselorDashboard({
                             <tbody className="divide-y divide-gray-50 text-sm">
                                 {waitingStudents.map((student) => (
                                     <tr key={student.id} className="hover:bg-gray-50/50 transition-colors">
-                                        <td className="px-4 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center border border-green-100">
-                                                    <User className="w-4 h-4 text-green-600" />
-                                                </div>
-                                                <span className="font-medium">{student.name}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-4 text-[var(--color-text-secondary)]">
-                                            {student.waitingSince}
-                                        </td>
-                                        <td className="px-4 py-4">
-                                            <span className={`px-3 py-1 rounded-full text-[11px] font-bold border ${getUrgencyColor(student.urgency)}`}>
-                                                {getUrgencyLabel(student.urgency)}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-4">
-                                            <button className="text-[var(--color-accent-blue)] font-bold hover:underline">
-                                                ลงตารางนัดหมาย
-                                            </button>
-                                        </td>
+                                        <td className="px-4 py-4"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center border border-green-100"><User className="w-4 h-4 text-green-600" /></div><span className="font-medium">{student.name}</span></div></td>
+                                        <td className="px-4 py-4 text-[var(--color-text-secondary)]">{student.waitingSince}</td>
+                                        <td className="px-4 py-4"><span className={`px-3 py-1 rounded-full text-[11px] font-bold border ${getUrgencyColor(student.urgency)}`}>{getUrgencyLabel(student.urgency)}</span></td>
+                                        <td className="px-4 py-4"><button onClick={() => onScheduleAppointment?.(student.id)} className="text-[var(--color-accent-blue)] font-bold hover:underline">ลงตารางนัดหมาย</button></td>
                                     </tr>
                                 ))}
                             </tbody>

@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // เพิ่ม useEffect
 import {
     User, Calendar, Clock, Save, ShieldCheck,
-    ArrowLeftRight, Plus, Tag, Search, Filter, ChevronRight,
+    Plus, Tag, Search, ChevronRight,
     ArrowLeft, LayoutGrid, List as ListIcon, AlertCircle, X
 } from 'lucide-react';
 
-// --- Interfaces & Types ---
+// --- Interfaces ---
 interface CaseNote {
     id: string;
     caseCode: string;
@@ -43,25 +43,27 @@ export function CaseNotePage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterTag, setFilterTag] = useState('All');
     const [customTagInput, setCustomTagInput] = useState('');
+    const [isLoading, setIsLoading] = useState(true);
 
-    // Mock Data สำหรับ List
-    const [cases, setCases] = useState<CaseNote[]>([
-        {
-            id: '1',
-            caseCode: 'CASE-2024-001',
-            studentId: '650610001',
-            studentName: 'สมชาย ตั้งใจเรียน',
-            department: 'วิศวกรรมคอมพิวเตอร์',
-            sessionDate: '2026-01-05',
-            sessionTime: '10:00',
-            moodScale: 2,
-            selectedTags: ['Academic Stress', 'Sleep Issues'],
-            sessionSummary: 'นักศึกษามีความกังวลเรื่องการสอบปลายภาค...',
-            interventions: 'แนะนำเทคนิคการแบ่งเวลาแบบ Pomodoro',
-            followUp: 'นัดติดตามผลหลังสอบเสร็จ',
-            consentSigned: true
-        }
-    ]);
+    // ✅ เปลี่ยนจาก Mock Data เป็น State ว่างเพื่อรอรับค่าจาก DB
+    const [cases, setCases] = useState<CaseNote[]>([]);
+
+    // --- Fetch Data from DB ---
+    useEffect(() => {
+        const fetchCases = async () => {
+            try {
+                setIsLoading(true);
+                const response = await fetch('/api/casenotes'); // เปลี่ยน URL ให้ตรงกับ API ของคุณ
+                const data = await response.json();
+                setCases(data);
+            } catch (error) {
+                console.error("Failed to fetch case notes:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchCases();
+    }, []);
 
     // State สำหรับการสร้างบันทึกใหม่
     const [newNote, setNewNote] = useState<Partial<CaseNote>>({
@@ -77,35 +79,42 @@ export function CaseNotePage() {
     });
 
     // --- Handlers ---
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!newNote.studentName || !newNote.caseCode) {
             alert("กรุณาระบุชื่อนักศึกษาและรหัสเคส");
             return;
         }
 
-        const completedNote = {
-            ...newNote,
-            id: String(Date.now()),
-            department: 'General',
-            consentSigned: true
-        } as CaseNote;
+        try {
+            // ✅ ส่งข้อมูลไปที่ Backend จริง
+            const response = await fetch('/api/casenotes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newNote),
+            });
 
-        setCases([completedNote, ...cases]);
-        alert('บันทึก Case Note เรียบร้อยแล้ว (Data saved for reporting)');
-        setView('list');
+            if (response.ok) {
+                const savedNote = await response.json();
+                setCases([savedNote, ...cases]);
+                alert('บันทึก Case Note เรียบร้อยแล้ว');
+                setView('list');
 
-        // Reset Form
-        setNewNote({
-            caseCode: '',
-            studentName: '',
-            sessionDate: new Date().toISOString().split('T')[0],
-            sessionTime: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
-            moodScale: 3,
-            selectedTags: [],
-            sessionSummary: '',
-            interventions: '',
-            followUp: ''
-        });
+                // Reset Form
+                setNewNote({
+                    caseCode: '',
+                    studentName: '',
+                    sessionDate: new Date().toISOString().split('T')[0],
+                    sessionTime: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
+                    moodScale: 3,
+                    selectedTags: [],
+                    sessionSummary: '',
+                    interventions: '',
+                    followUp: ''
+                });
+            }
+        } catch (error) {
+            alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
+        }
     };
 
     const toggleTag = (tag: string) => {
@@ -128,13 +137,13 @@ export function CaseNotePage() {
 
     // --- Filter Logic ---
     const filteredCases = cases.filter(c => {
-        const matchesSearch = c.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            c.caseCode.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesSearch = (c.studentName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+            (c.caseCode?.toLowerCase() || '').includes(searchTerm.toLowerCase());
         const matchesTag = filterTag === 'All' || c.selectedTags.includes(filterTag);
         return matchesSearch && matchesTag;
     });
 
-    // --- Render: CREATE VIEW ---
+    // --- Render: CREATE VIEW --- (คงดีไซน์เดิม 100%)
     if (view === 'create') {
         return (
             <div className="p-8 max-w-5xl mx-auto font-sans bg-[#FBFBFB] min-h-screen">
@@ -149,7 +158,6 @@ export function CaseNotePage() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="lg:col-span-2 space-y-6">
-                        {/* ข้อมูลพื้นฐาน */}
                         <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100">
                             <h3 className="text-lg font-bold mb-5 flex items-center gap-2 text-gray-700">
                                 <User className="w-5 h-5 text-green-500" /> ข้อมูลเบื้องต้น
@@ -176,7 +184,6 @@ export function CaseNotePage() {
                             </div>
                         </div>
 
-                        {/* เนื้อหาการปรึกษา */}
                         <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100">
                             <h3 className="text-lg font-bold mb-4 text-gray-700">Session Summary (Keywords)</h3>
                             <textarea
@@ -201,7 +208,6 @@ export function CaseNotePage() {
                     </div>
 
                     <div className="space-y-6">
-                        {/* วันเวลา */}
                         <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm">
                             <h3 className="font-bold mb-4 text-gray-700 flex items-center gap-2"><Clock className="w-4 h-4" /> Schedule</h3>
                             <div className="space-y-3">
@@ -210,7 +216,6 @@ export function CaseNotePage() {
                             </div>
                         </div>
 
-                        {/* Mood */}
                         <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm">
                             <h3 className="font-bold mb-4 text-gray-700">Mood Assessment</h3>
                             <div className="flex justify-between items-center px-2">
@@ -227,11 +232,8 @@ export function CaseNotePage() {
                             </div>
                         </div>
 
-                        {/* Tags Management */}
                         <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm">
                             <h3 className="font-bold mb-4 text-gray-700 flex items-center gap-2"><Tag className="w-4 h-4" /> Problem Tags</h3>
-
-                            {/* Selected Tags Display */}
                             <div className="flex flex-wrap gap-2 mb-4 min-h-[40px] p-2 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
                                 {newNote.selectedTags?.map(tag => (
                                     <span key={tag} className="flex items-center gap-1 px-3 py-1 bg-green-500 text-white rounded-lg text-[11px] font-bold shadow-sm animate-in zoom-in-75">
@@ -241,7 +243,6 @@ export function CaseNotePage() {
                                 ))}
                                 {newNote.selectedTags?.length === 0 && <span className="text-gray-300 text-[11px] italic font-medium">ยังไม่ได้เลือก Tag...</span>}
                             </div>
-
                             <div className="space-y-4">
                                 <input
                                     placeholder="พิมพ์ Tag ใหม่แล้วกด Enter..."
@@ -276,7 +277,7 @@ export function CaseNotePage() {
         );
     }
 
-    // --- Render: LIST VIEW ---
+    // --- Render: LIST VIEW --- (คงดีไซน์เดิม 100%)
     return (
         <div className="p-8 max-w-6xl mx-auto font-sans bg-[#FBFBFB] min-h-screen">
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
@@ -292,7 +293,6 @@ export function CaseNotePage() {
                 </button>
             </header>
 
-            {/* Search & Filter */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
                 <div className="md:col-span-2 relative">
                     <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
@@ -321,7 +321,6 @@ export function CaseNotePage() {
                 </div>
             </div>
 
-            {/* Table */}
             <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-50 overflow-hidden mb-10">
                 <table className="w-full text-left">
                     <thead className="bg-gray-50/70">
@@ -334,12 +333,14 @@ export function CaseNotePage() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                        {filteredCases.map((c) => (
+                        {isLoading ? (
+                            <tr><td colSpan={5} className="p-10 text-center text-gray-400">Loading case records...</td></tr>
+                        ) : filteredCases.map((c) => (
                             <tr key={c.id} className="hover:bg-green-50/30 transition-all group cursor-pointer">
                                 <td className="px-8 py-6">
                                     <div className="flex items-center gap-4">
                                         <div className="w-12 h-12 rounded-2xl bg-green-100 flex items-center justify-center text-green-600 font-black text-lg group-hover:bg-green-500 group-hover:text-white transition-all duration-300">
-                                            {c.studentName[0]}
+                                            {c.studentName ? c.studentName[0] : '?'}
                                         </div>
                                         <div>
                                             <p className="font-bold text-gray-800 text-sm">{c.studentName}</p>
@@ -356,10 +357,10 @@ export function CaseNotePage() {
                                 <td className="px-6 py-6 text-2xl text-center">{moodLevels.find(m => m.value === c.moodScale)?.icon}</td>
                                 <td className="px-6 py-6">
                                     <div className="flex flex-wrap gap-1">
-                                        {c.selectedTags.slice(0, 1).map(tag => (
+                                        {c.selectedTags?.slice(0, 1).map(tag => (
                                             <span key={tag} className="px-3 py-1 bg-gray-100 text-[10px] font-bold text-gray-400 rounded-lg group-hover:bg-white transition-colors">{tag}</span>
                                         ))}
-                                        {c.selectedTags.length > 1 && (
+                                        {c.selectedTags && c.selectedTags.length > 1 && (
                                             <span className="px-2 py-1 bg-green-50 text-[10px] font-bold text-green-500 rounded-lg">+{c.selectedTags.length - 1}</span>
                                         )}
                                     </div>
@@ -373,7 +374,7 @@ export function CaseNotePage() {
                         ))}
                     </tbody>
                 </table>
-                {filteredCases.length === 0 && (
+                {!isLoading && filteredCases.length === 0 && (
                     <div className="p-20 text-center">
                         <AlertCircle className="w-12 h-12 text-gray-100 mx-auto mb-4" />
                         <p className="text-gray-400 font-bold">ไม่พบข้อมูลที่ตรงกับการค้นหา</p>
@@ -381,7 +382,6 @@ export function CaseNotePage() {
                 )}
             </div>
 
-            {/* PDPA Reminder */}
             <div className="p-6 bg-amber-50 rounded-[2rem] border border-amber-100 flex items-center gap-5">
                 <div className="bg-white p-3 rounded-2xl shadow-sm text-amber-500">
                     <ShieldCheck className="w-6 h-6" />
@@ -389,7 +389,6 @@ export function CaseNotePage() {
                 <p className="text-xs text-amber-800 leading-relaxed font-medium">
                     <strong className="block mb-0.5">Confidentiality & Compliance</strong>
                     ข้อมูลทั้งหมดถูกจัดเก็บภายใต้มาตรฐานความปลอดภัยระดับสูงและใช้เพื่อการสรุปสถิติภาพรวม (Reporting) เท่านั้น
-                    ผู้มีสิทธิ์เข้าถึงบันทึกนี้มีเพียงอาจารย์ผู้ให้คำปรึกษาเจ้าของเคสและผู้ดูแลระบบตามความเหมาะสม
                 </p>
             </div>
         </div>

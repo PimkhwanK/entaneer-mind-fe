@@ -1,12 +1,55 @@
 export type UserRole = 'student' | 'counselor' | 'admin' | null;
 
-export interface StudentProfile {
+// --- สำหรับ Counselor Dashboard (UI ที่เราเพิ่งแก้ไป) ---
+export interface WaitingStudent {
+    id: string;
     name: string;
-    studentId: string;
+    waitingSince: string;
+    urgency: 'low' | 'medium' | 'high';
+}
+
+export interface TodayAppointment {
+    id: string;
+    time: string;
+    studentName: string;
+    status: 'pending' | 'in-progress' | 'completed';
     caseCode: string;
-    department: string;
-    previousSessions: number;
-    consentSigned: boolean;
+}
+
+// --- สำหรับ Manage Schedule ---
+export interface TimeBlock {
+    day: string;
+    time: string;
+    available: boolean;
+    bookedBy?: string;
+    studentName?: string;
+}
+
+// --- สำหรับ User Data (อ้างอิงจาก Response ของ Backend /users/me) ---
+export interface UserData {
+    id: string;
+    firstName: string;
+    lastName: string;
+    cmuAccount: string;
+    roleName: string;
+    phoneNum?: string;
+    createdAt?: string;
+    studentProfile?: {
+        studentId: string;
+        department: string;
+        cases?: any[];
+    };
+}
+
+// --- Interface เดิมที่คุณมี (ปรับให้ตรงกับ Backend) ---
+export interface Appointment {
+    id: string;
+    date: string;
+    time: string;
+    counselor: string;
+    status: 'upcoming' | 'completed' | 'cancelled';
+    notes?: string;
+    googleEventId?: string;
 }
 
 export interface CaseNote {
@@ -23,14 +66,4 @@ export interface CaseNote {
     interventions: string;
     followUp: string;
     createdAt: string;
-}
-
-export interface Appointment {
-    id: string;
-    date: string;
-    time: string;
-    counselor: string;
-    status: 'upcoming' | 'completed' | 'cancelled';
-    notes?: string;
-    googleEventId?: string;
 }
