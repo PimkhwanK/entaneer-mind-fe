@@ -14,6 +14,8 @@ interface StudentHomeProps {
     appointments: Appointment[];
     isWaitingForQueue?: boolean;
     queuePosition?: number;
+    // เพิ่ม prop เพื่อใช้ข้ามหน้า waiting ชั่วคราวสำหรับการทดสอบ
+    onDebugSkipWaiting?: () => void;
 }
 
 const dailyQuotes = [
@@ -28,12 +30,45 @@ export function StudentHome({
     onBookSession,
     appointments,
     isWaitingForQueue = false,
-    queuePosition
+    queuePosition,
+    onDebugSkipWaiting
 }: StudentHomeProps) {
     const todayQuote = dailyQuotes[new Date().getDay() % dailyQuotes.length];
     const upcomingAppointments = appointments.filter(apt => apt.status === 'upcoming');
 
-    // --- CASE 2: หน้า Home ปกติ (เอา CASE 1 ที่เป็นหน้า Waiting ออกแล้ว) ---
+    // --- CASE 1: สถานะรอคิวสำหรับนักศึกษาใหม่ (Full Page Waiting) ---
+    if (isWaitingForQueue) {
+        return (
+            <div className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center p-8 text-center">
+                <div className="w-24 h-24 rounded-full bg-blue-50 flex items-center justify-center mb-6">
+                    <Timer className="w-12 h-12 text-[var(--color-accent-blue)] animate-pulse" />
+                </div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-4">ได้รับข้อมูลของคุณเรียบร้อยแล้ว</h1>
+                <p className="text-lg text-gray-600 max-w-md mb-8 leading-relaxed">
+                    พี่ป๊อปกำลังพิจารณาและจัดสรรผู้ให้คำปรึกษาที่เหมาะสมกับคุณ
+                    เราจะแจ้งเตือนคุณผ่านทางหน้าเพจ, เว็บไซต์ และ Google Calendar เมื่อตารางเวลาลงตัว
+                </p>
+
+                {/* ส่วนลำดับคิวถูกนำออกตามคำขอ */}
+
+                <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 max-w-lg mb-8">
+                    <p className="text-amber-800 text-sm italic">
+                        "ระหว่างรอ... อย่าลืมใจดีกับตัวเองให้มากๆ นะครับ"
+                    </p>
+                </div>
+
+                {/* ปุ่มชั่วคราวสำหรับ Developer/Test เพื่อเข้าหน้า Home ก่อน */}
+                <button
+                    onClick={onDebugSkipWaiting}
+                    className="flex items-center gap-2 text-sm text-gray-400 hover:text-[var(--color-accent-blue)] transition-colors"
+                >
+                    เข้าสู่หน้าหลักชั่วคราว (เพื่อการทดสอบ) <ArrowRight className="w-4 h-4" />
+                </button>
+            </div>
+        );
+    }
+
+    // --- CASE 2: หน้า Home ปกติ ---
     return (
         <div className="p-8 max-w-7xl mx-auto font-sans">
             {/* Welcome Section */}

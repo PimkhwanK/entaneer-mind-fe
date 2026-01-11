@@ -25,18 +25,18 @@ export interface TimeBlock {
     studentName?: string;
 }
 
-// --- สำหรับ User Data (อ้างอิงจาก Response ของ Backend /users/me) ---
 export interface UserData {
-    id: string;
+    userId: number; // เปลี่ยนจาก id เป็น userId และเป็น number
     firstName: string;
     lastName: string;
     cmuAccount: string;
-    roleName: string;
+    roleName: string; // 'student', 'counselor', 'admin'
     phoneNum?: string;
-    createdAt?: string;
+    gender?: string;
     studentProfile?: {
         studentId: string;
-        department: string;
+        major?: string;
+        department?: string;
         cases?: any[];
     };
 }

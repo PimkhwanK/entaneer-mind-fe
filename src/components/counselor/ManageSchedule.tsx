@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Clock, Home } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock, Home, Save } from 'lucide-react';
 
-// รวม Interface ไว้ในไฟล์เพื่อแก้ปัญหา [plugin:vite:import-analysis] Failed to resolve import "./types"
 export interface TimeBlock {
     day: string;
     time: string;
@@ -18,17 +17,20 @@ interface ManageScheduleProps {
 }
 
 export function ManageSchedule({
-    schedule = [], // กำหนดค่าเริ่มต้นเป็น array ว่างเพื่อป้องกัน error .find
+    schedule = [],
     onScheduleChange,
     onDateChange,
     currentDate
 }: ManageScheduleProps) {
     const [selectedRoom, setSelectedRoom] = useState('ห้องที่ปรึกษา 1');
+    const days = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์'];
+    const times = ['09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
 
-    const handleSlotClick = (day: string, time: string, block: TimeBlock) => {
+    const handleSlotClick = (day: string, time: string, block?: TimeBlock) => {
         let newSchedule = [...schedule];
+        const blockIndex = schedule.findIndex(b => b.day === day && b.time === time);
 
-        if (block.bookedBy) {
+        if (block && block.bookedBy) {
             const confirmCancel = window.confirm(`จัดการการนัดหมาย: ${block.bookedBy}\nคุณต้องการยกเลิกหรือเลื่อนนัดหมายเร่งด่วนนี้ใช่หรือไม่?`);
             if (confirmCancel) {
                 newSchedule = schedule.map(b =>
@@ -36,10 +38,33 @@ export function ManageSchedule({
                 );
             }
         } else {
-            newSchedule = schedule.map(b =>
-                (b.day === day && b.time === time) ? { ...b, available: !b.available } : b
-            );
+            if (blockIndex !== -1) {
+                newSchedule = schedule.map((b, index) =>
+                    index === blockIndex ? { ...b, available: !b.available } : b
+                );
+            } else {
+                newSchedule.push({ day, time, available: true });
+            }
         }
+        onScheduleChange(newSchedule);
+    };
+
+    const handleToggleAll = (available: boolean) => {
+        // สร้างตารางใหม่ทั้งหมดโดยอ้างอิงจากวันและเวลาที่มี
+        // หากช่องไหนมีการจองแล้ว (bookedBy) ให้คงค่าเดิมไว้ ไม่ให้โดนทับ
+        const newSchedule: TimeBlock[] = [];
+
+        days.forEach(day => {
+            times.forEach(time => {
+                const existingBlock = schedule.find(b => b.day === day && b.time === time);
+                if (existingBlock && existingBlock.bookedBy) {
+                    newSchedule.push(existingBlock);
+                } else {
+                    newSchedule.push({ day, time, available });
+                }
+            });
+        });
+
         onScheduleChange(newSchedule);
     };
 
@@ -64,19 +89,20 @@ export function ManageSchedule({
         onDateChange(newDate);
     };
 
-    const handleToggleAll = (available: boolean) => {
-        const newSchedule = schedule.map(b => !b.bookedBy ? { ...b, available } : b);
-        onScheduleChange(newSchedule);
-    };
-
-    const days = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์'];
-    const times = ['09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
-
     return (
         <div className="p-8 max-w-7xl mx-auto font-sans">
-            <header className="mb-8">
-                <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">จัดการตารางเวลา</h1>
-                <p className="text-[var(--color-text-secondary)]">ตั้งค่าช่วงเวลาที่ว่างและจัดการลำดับความสำคัญของเคสนัดหมาย</p>
+            <header className="mb-8 flex justify-between items-end">
+                <div>
+                    <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">จัดการตารางเวลา</h1>
+                    <p className="text-[var(--color-text-secondary)]">ตั้งค่าช่วงเวลาที่ว่างและจัดการลำดับความสำคัญของเคสนัดหมาย</p>
+                </div>
+                <button
+                    onClick={() => alert('บันทึกข้อมูลตารางเวลาเรียบร้อยแล้ว')}
+                    className="flex items-center gap-2 px-6 py-3 bg-[var(--color-accent-blue)] text-white rounded-2xl font-bold hover:opacity-90 transition-all shadow-md"
+                >
+                    <Save className="w-5 h-5" />
+                    บันทึกการเปลี่ยนแปลง
+                </button>
             </header>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
@@ -146,7 +172,7 @@ export function ManageSchedule({
                                     if (!block) return (
                                         <td key={day} className="p-2">
                                             <button
-                                                onClick={() => handleSlotClick(day, time, { day, time, available: false })}
+                                                onClick={() => handleSlotClick(day, time)}
                                                 className="w-full h-16 rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/50 hover:bg-gray-100 transition-all flex items-center justify-center"
                                             >
                                                 <span className="text-xs text-gray-300">+</span>
