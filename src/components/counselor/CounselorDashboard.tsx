@@ -17,22 +17,40 @@ export interface TodayAppointment {
 }
 
 interface CounselorDashboardProps {
-    waitingStudents: WaitingStudent[];
-    todayAppointments: TodayAppointment[];
-    totalCasesCount: number;
+    waitingStudents?: WaitingStudent[];
+    todayAppointments?: TodayAppointment[];
+    totalCasesCount?: number;
     onGenerateToken: () => string;
     onScheduleAppointment?: (studentId: string) => void;
 }
 
 export function CounselorDashboard({
-    waitingStudents,
-    todayAppointments,
-    totalCasesCount,
+    waitingStudents: initialWaitingStudents,
+    todayAppointments: initialTodayAppointments,
+    totalCasesCount: initialTotalCount,
     onGenerateToken,
     onScheduleAppointment
 }: CounselorDashboardProps) {
     const [generatedToken, setGeneratedToken] = useState<string | null>(null);
     const [copiedToken, setCopiedToken] = useState(false);
+
+    // Mockup Data
+    const mockWaitingStudents: WaitingStudent[] = [
+        { id: 'w1', name: 'นายสมชาย รักเรียน', waitingSince: '10:15 น.', urgency: 'high' },
+        { id: 'w2', name: 'นางสาวใจดี มีสุข', waitingSince: '10:45 น.', urgency: 'medium' },
+        { id: 'w3', name: 'นายขยัน หมั่นเพียร', waitingSince: '11:20 น.', urgency: 'low' },
+    ];
+
+    const mockTodayAppointments: TodayAppointment[] = [
+        { id: 'a1', time: '13:00', studentName: 'นายมงคล สายลุย', status: 'in-progress', caseCode: 'CASE-2024-001' },
+        { id: 'a2', time: '14:30', studentName: 'นางสาววิภาดา แก้วใส', status: 'pending', caseCode: 'CASE-2024-005' },
+        { id: 'a3', time: '10:00', studentName: 'นายธันวา มาดี', status: 'completed', caseCode: 'CASE-2023-089' },
+    ];
+
+    // เลือกใช้ข้อมูลจาก Props หรือ Mockup
+    const waitingStudents = initialWaitingStudents || mockWaitingStudents;
+    const todayAppointments = initialTodayAppointments || mockTodayAppointments;
+    const totalCasesCount = initialTotalCount !== undefined ? initialTotalCount : 128;
 
     const handleGenerateToken = () => {
         const token = onGenerateToken();

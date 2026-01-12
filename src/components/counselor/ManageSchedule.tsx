@@ -16,6 +16,21 @@ interface ManageScheduleProps {
     currentDate: Date;
 }
 
+// --- Mockup Data ---
+const MOCK_SCHEDULE: TimeBlock[] = [
+    { day: 'จันทร์', time: '09:00', available: true },
+    { day: 'จันทร์', time: '10:00', available: true, bookedBy: 'สมชาย รักเรียน' },
+    { day: 'จันทร์', time: '13:00', available: false },
+    { day: 'อังคาร', time: '11:00', available: true, bookedBy: 'สมหญิง จริงใจ' },
+    { day: 'อังคาร', time: '14:00', available: true },
+    { day: 'พุธ', time: '09:00', available: false },
+    { day: 'พุธ', time: '15:00', available: true, bookedBy: 'วิชาการ ดีเลิศ' },
+    { day: 'พฤหัสบดี', time: '10:00', available: true },
+    { day: 'พฤหัสบดี', time: '16:00', available: false },
+    { day: 'ศุกร์', time: '09:00', available: true },
+    { day: 'ศุกร์', time: '13:00', available: true, bookedBy: 'กิตติพงษ์ ใจดี' },
+];
+
 export function ManageSchedule({
     schedule = [],
     onScheduleChange,
@@ -26,20 +41,23 @@ export function ManageSchedule({
     const days = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์'];
     const times = ['09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
 
+    // ตรวจสอบว่าถ้า schedule ที่รับมาว่าง ให้ใช้ MOCK_SCHEDULE แทน
+    const displaySchedule = schedule.length > 0 ? schedule : MOCK_SCHEDULE;
+
     const handleSlotClick = (day: string, time: string, block?: TimeBlock) => {
-        let newSchedule = [...schedule];
-        const blockIndex = schedule.findIndex(b => b.day === day && b.time === time);
+        let newSchedule = [...displaySchedule];
+        const blockIndex = displaySchedule.findIndex(b => b.day === day && b.time === time);
 
         if (block && block.bookedBy) {
             const confirmCancel = window.confirm(`จัดการการนัดหมาย: ${block.bookedBy}\nคุณต้องการยกเลิกหรือเลื่อนนัดหมายเร่งด่วนนี้ใช่หรือไม่?`);
             if (confirmCancel) {
-                newSchedule = schedule.map(b =>
+                newSchedule = displaySchedule.map(b =>
                     (b.day === day && b.time === time) ? { ...b, available: true, bookedBy: undefined, studentName: undefined } : b
                 );
             }
         } else {
             if (blockIndex !== -1) {
-                newSchedule = schedule.map((b, index) =>
+                newSchedule = displaySchedule.map((b, index) =>
                     index === blockIndex ? { ...b, available: !b.available } : b
                 );
             } else {
@@ -50,13 +68,11 @@ export function ManageSchedule({
     };
 
     const handleToggleAll = (available: boolean) => {
-        // สร้างตารางใหม่ทั้งหมดโดยอ้างอิงจากวันและเวลาที่มี
-        // หากช่องไหนมีการจองแล้ว (bookedBy) ให้คงค่าเดิมไว้ ไม่ให้โดนทับ
         const newSchedule: TimeBlock[] = [];
 
         days.forEach(day => {
             times.forEach(time => {
-                const existingBlock = schedule.find(b => b.day === day && b.time === time);
+                const existingBlock = displaySchedule.find(b => b.day === day && b.time === time);
                 if (existingBlock && existingBlock.bookedBy) {
                     newSchedule.push(existingBlock);
                 } else {
@@ -168,7 +184,7 @@ export function ManageSchedule({
                             <tr key={time} className="border-b border-[var(--color-border)] hover:bg-gray-50/50 transition-colors">
                                 <td className="p-4 text-sm text-gray-500 font-medium">{time} น.</td>
                                 {days.map(day => {
-                                    const block = schedule.find(b => b.day === day && b.time === time);
+                                    const block = displaySchedule.find(b => b.day === day && b.time === time);
                                     if (!block) return (
                                         <td key={day} className="p-2">
                                             <button

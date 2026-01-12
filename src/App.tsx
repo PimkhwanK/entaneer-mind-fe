@@ -101,8 +101,8 @@ export function StudentHome({
           <button
             onClick={hasExistingBooking ? onViewHistory : onBookSession}
             className={`w-full p-8 rounded-[2rem] shadow-md flex flex-col items-center justify-center gap-4 group h-full min-h-[250px] transition-all ${hasExistingBooking
-                ? 'bg-amber-50 border-2 border-amber-200 text-amber-800 hover:bg-amber-100'
-                : 'bg-[var(--color-accent-green)] text-white hover:opacity-90'
+              ? 'bg-amber-50 border-2 border-amber-200 text-amber-800 hover:bg-amber-100'
+              : 'bg-[var(--color-accent-green)] text-white hover:opacity-90'
               }`}
           >
             <div className={`w-16 h-16 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform ${hasExistingBooking ? 'bg-amber-200' : 'bg-white/20'
@@ -306,11 +306,38 @@ export default function App() {
       }
     }
     if (userRole === 'counselor') {
+      // Mockup Data สำหรับ Dashboard (จะถูกใช้เมื่อ API ยังไม่มีข้อมูลส่งมา)
+      const mockGenerateToken = () => {
+        const token = Math.random().toString(36).substring(2, 10).toUpperCase();
+        return `TOKEN-${token}`;
+      };
+
       switch (currentPage) {
-        case 'counselor-dashboard': return <CounselorDashboard waitingStudents={waitingStudents} todayAppointments={todayAppointments} totalCasesCount={0} onGenerateToken={() => ''} onScheduleAppointment={() => setCurrentPage('counselor-schedule')} />;
+        case 'counselor-dashboard':
+          return (
+            <CounselorDashboard
+              waitingStudents={waitingStudents.length > 0 ? waitingStudents : undefined}
+              todayAppointments={todayAppointments.length > 0 ? todayAppointments : undefined}
+              totalCasesCount={128}
+              onGenerateToken={mockGenerateToken}
+              onScheduleAppointment={(id) => {
+                console.log('Scheduling for student:', id);
+                setCurrentPage('counselor-schedule');
+              }}
+            />
+          );
         case 'counselor-notes': return <CaseNotePage />;
         case 'counselor-schedule': return <ManageSchedule schedule={counselorSchedule} currentDate={scheduleDate} onScheduleChange={setCounselorSchedule} onDateChange={setScheduleDate} />;
-        default: return <CounselorDashboard waitingStudents={waitingStudents} todayAppointments={todayAppointments} totalCasesCount={0} onGenerateToken={() => ''} onScheduleAppointment={() => setCurrentPage('counselor-schedule')} />;
+        default:
+          return (
+            <CounselorDashboard
+              waitingStudents={waitingStudents.length > 0 ? waitingStudents : undefined}
+              todayAppointments={todayAppointments.length > 0 ? todayAppointments : undefined}
+              totalCasesCount={128}
+              onGenerateToken={mockGenerateToken}
+              onScheduleAppointment={() => setCurrentPage('counselor-schedule')}
+            />
+          );
       }
     }
     if (userRole === 'admin') {
