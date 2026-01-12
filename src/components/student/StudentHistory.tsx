@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Clock, User, Search, Filter } from 'lucide-react';
+import { Calendar, Clock, User, Search, Filter, XCircle } from 'lucide-react';
 
 interface Appointment {
     id: string;
@@ -12,13 +12,45 @@ interface Appointment {
 
 interface StudentHistoryProps {
     appointments: Appointment[];
+    onCancelAppointment?: (id: string) => void;
 }
 
-export function StudentHistory({ appointments }: StudentHistoryProps) {
+export function StudentHistory({ appointments: initialAppointments, onCancelAppointment }: StudentHistoryProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | 'upcoming' | 'completed' | 'cancelled'>('all');
 
-    const filteredAppointments = appointments.filter((apt) => {
+    // จัดการข้อมูลด้วย State เพื่อให้เมื่อลบ (Cancel) แล้วหายไปทันที
+    const [localAppointments, setLocalAppointments] = useState<Appointment[]>(() => {
+        const mockData: Appointment[] = [
+            {
+                id: '1',
+                date: '24 ม.ค. 2567',
+                time: '10:30',
+                counselor: 'พี่ป๊อป (ห้อง 1)',
+                status: 'upcoming',
+                notes: 'ปรึกษาเรื่องการเรียนและแรงจูงใจ'
+            },
+            {
+                id: '2',
+                date: '15 ม.ค. 2567',
+                time: '13:00',
+                counselor: 'พี่น้ำขิง (ห้อง 2)',
+                status: 'completed',
+                notes: 'ติดตามผลจากครั้งที่แล้ว รู้สึกดีขึ้น'
+            },
+            {
+                id: '3',
+                date: '10 ม.ค. 2567',
+                time: '09:00',
+                counselor: 'พี่ป๊อป (ห้อง 1)',
+                status: 'cancelled',
+                notes: 'ติดธุระด่วนทางบ้าน'
+            }
+        ];
+        return initialAppointments.length > 0 ? initialAppointments : mockData;
+    });
+
+    const filteredAppointments = localAppointments.filter((apt) => {
         const matchesSearch = apt.counselor.toLowerCase().includes(searchTerm.toLowerCase()) ||
             apt.date.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesFilter = filterStatus === 'all' || apt.status === filterStatus;
@@ -27,21 +59,27 @@ export function StudentHistory({ appointments }: StudentHistoryProps) {
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'upcoming':
-                return 'bg-blue-100 text-blue-700';
-            case 'completed':
-                return 'bg-green-100 text-green-700';
-            case 'cancelled':
-                return 'bg-red-100 text-red-700';
-            default:
-                return 'bg-gray-100 text-gray-700';
+            case 'upcoming': return 'bg-blue-100 text-blue-700';
+            case 'completed': return 'bg-green-100 text-green-700';
+            case 'cancelled': return 'bg-red-100 text-red-700';
+            default: return 'bg-gray-100 text-gray-700';
+        }
+    };
+
+    const handleCancel = (id: string) => {
+        if (window.confirm('คุณต้องการยกเลิกนัดหมายนี้ใช่หรือไม่?')) {
+            // เรียกฟังก์ชันจาก props (ถ้ามี)
+            onCancelAppointment?.(id);
+
+            // ลบข้อมูลออกจาก List ทันทีเพื่อให้ "หายไป" ตามที่ต้องการ
+            setLocalAppointments(prev => prev.filter(apt => apt.id !== id));
         }
     };
 
     return (
         <div className="p-8 max-w-7xl mx-auto">
-            <h1 className="mb-2">Session History</h1>
-            <p className="mb-8">View your past and upcoming counseling sessions</p>
+            <h1 className="mb-2 text-2xl font-bold">Session History</h1>
+            <p className="mb-8 text-gray-500">View your past and upcoming counseling sessions</p>
 
             {/* Search and Filter */}
             <div className="bg-white rounded-3xl p-6 shadow-sm mb-6">
@@ -74,7 +112,7 @@ export function StudentHistory({ appointments }: StudentHistoryProps) {
             </div>
 
             {/* Appointments Table */}
-            <div className="bg-white rounded-3xl shadow-sm overflow-hidden">
+            <div className="bg-white rounded-3xl shadow-sm overflow-hidden border border-[var(--color-border)]">
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead className="bg-[var(--color-primary-blue)] border-b border-[var(--color-border)]">
@@ -99,12 +137,13 @@ export function StudentHistory({ appointments }: StudentHistoryProps) {
                                 </th>
                                 <th className="px-6 py-4 text-left">Status</th>
                                 <th className="px-6 py-4 text-left">Notes</th>
+                                <th className="px-6 py-4 text-center">Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             {filteredAppointments.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-12 text-center">
+                                    <td colSpan={6} className="px-6 py-12 text-center">
                                         <Calendar className="w-12 h-12 mx-auto mb-3 text-[var(--color-border)]" />
                                         <p>No sessions found</p>
                                         <p className="text-sm text-[var(--color-text-secondary)] mt-1">
@@ -116,15 +155,10 @@ export function StudentHistory({ appointments }: StudentHistoryProps) {
                                 filteredAppointments.map((apt, index) => (
                                     <tr
                                         key={apt.id}
-                                        className={`border-b border-[var(--color-border)] hover:bg-[var(--color-primary-blue)] transition-colors ${index % 2 === 0 ? '' : 'bg-[var(--color-primary-blue)]/30'
-                                            }`}
+                                        className={`border-b border-[var(--color-border)] hover:bg-[var(--color-primary-blue)] transition-colors ${index % 2 === 0 ? '' : 'bg-[var(--color-primary-blue)]/30'}`}
                                     >
-                                        <td className="px-6 py-4 text-[var(--color-text-primary)]">
-                                            {apt.date}
-                                        </td>
-                                        <td className="px-6 py-4 text-[var(--color-text-secondary)]">
-                                            {apt.time}
-                                        </td>
+                                        <td className="px-6 py-4 text-[var(--color-text-primary)]">{apt.date}</td>
+                                        <td className="px-6 py-4 text-[var(--color-text-secondary)]">{apt.time} น.</td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-8 h-8 rounded-full bg-[var(--color-mint-green)] flex items-center justify-center">
@@ -141,6 +175,17 @@ export function StudentHistory({ appointments }: StudentHistoryProps) {
                                         <td className="px-6 py-4 text-[var(--color-text-secondary)] max-w-xs truncate">
                                             {apt.notes || '—'}
                                         </td>
+                                        <td className="px-6 py-4 text-center">
+                                            {apt.status === 'upcoming' && (
+                                                <button
+                                                    onClick={() => handleCancel(apt.id)}
+                                                    className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors group"
+                                                    title="Cancel Appointment"
+                                                >
+                                                    <XCircle className="w-5 h-5" />
+                                                </button>
+                                            )}
+                                        </td>
                                     </tr>
                                 ))
                             )}
@@ -151,26 +196,26 @@ export function StudentHistory({ appointments }: StudentHistoryProps) {
 
             {/* Summary Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
-                <div className="bg-white rounded-3xl p-6 shadow-sm">
+                <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
                     <p className="text-[var(--color-text-secondary)] mb-1">Total Sessions</p>
-                    <p className="text-3xl text-[var(--color-text-primary)]">{appointments.length}</p>
+                    <p className="text-3xl font-bold text-[var(--color-text-primary)]">{localAppointments.length}</p>
                 </div>
-                <div className="bg-white rounded-3xl p-6 shadow-sm">
+                <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
                     <p className="text-[var(--color-text-secondary)] mb-1">Upcoming</p>
-                    <p className="text-3xl text-blue-600">
-                        {appointments.filter(apt => apt.status === 'upcoming').length}
+                    <p className="text-3xl font-bold text-blue-600">
+                        {localAppointments.filter(apt => apt.status === 'upcoming').length}
                     </p>
                 </div>
-                <div className="bg-white rounded-3xl p-6 shadow-sm">
+                <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
                     <p className="text-[var(--color-text-secondary)] mb-1">Completed</p>
-                    <p className="text-3xl text-green-600">
-                        {appointments.filter(apt => apt.status === 'completed').length}
+                    <p className="text-3xl font-bold text-green-600">
+                        {localAppointments.filter(apt => apt.status === 'completed').length}
                     </p>
                 </div>
-                <div className="bg-white rounded-3xl p-6 shadow-sm">
+                <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
                     <p className="text-[var(--color-text-secondary)] mb-1">Cancelled</p>
-                    <p className="text-3xl text-red-600">
-                        {appointments.filter(apt => apt.status === 'cancelled').length}
+                    <p className="text-3xl font-bold text-red-600">
+                        {localAppointments.filter(apt => apt.status === 'cancelled').length}
                     </p>
                 </div>
             </div>

@@ -21,7 +21,7 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
                 <div className="text-center mb-4">
                     <img src="Entaneer Mind LOGO.png" className="w-20 h-20 mx-auto mb-4 rounded-full shadow-sm" alt="Logo" />
                     <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-[var(--color-accent-blue)] to-[var(--color-accent-green)] bg-clip-text text-transparent">
-                        Welcome Back
+                        Entaneer Mind Friend
                     </h1>
                 </div>
 
@@ -33,7 +33,7 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
                             Entaneer Mind Friend - คณะวิศวกรรมศาสตร์ มหาวิทยาลัยเชียงใหม่
                         </a>
 
-                        <h2 className="text-2xl font-bold text-gray-800 mt-6 mb-4">Entaneer Mind Friend</h2>
+                        <h2 className="text-2xl font-bold text-gray-800 mt-6 mb-4"></h2>
                         <p className="text-lg text-gray-500 leading-relaxed">
                             เว็บไซต์สำหรับการนัดคิวเพื่อบริการให้คำปรึกษาและดูแลสุขภาพจิต <br />
                             งานบริการศึกษาและพัฒนาคุณภาพนักศึกษา คณะวิศวกรรมศาสตร์ มหาวิทยาลัยเชียงใหม่

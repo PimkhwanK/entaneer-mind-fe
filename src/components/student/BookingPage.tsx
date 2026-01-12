@@ -6,21 +6,21 @@ interface TimeSlot {
     time: string;
     available: boolean;
     counselor: string;
-    day?: string; // เพิ่มรองรับการระบุวัน
+    day?: string;
 }
 
 interface BookingPageProps {
     onBook: (date: string, time: string, details: any) => void;
     onNavigateToHistory: () => void;
     hasExistingBooking?: boolean;
-    schedule?: TimeSlot[]; // รับข้อมูลตารางเวลาจากภายนอกแทน mockup
+    schedule?: TimeSlot[];
 }
 
 export function BookingPage({
     onBook,
     onNavigateToHistory,
     hasExistingBooking = false,
-    schedule = [] // Default เป็นอาเรย์ว่าง
+    schedule = []
 }: BookingPageProps) {
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
@@ -37,6 +37,19 @@ export function BookingPage({
     const [syncWithGoogle, setSyncWithGoogle] = useState(false);
     const [googleToken, setGoogleToken] = useState<string | null>(null);
 
+    // Mockup Data กรณีไม่มีข้อมูลส่งมาจาก props
+    const mockSchedule: TimeSlot[] = [
+        { time: '09:00', available: true, counselor: 'พี่ป๊อป (ห้อง 1)' },
+        { time: '10:30', available: true, counselor: 'พี่ป๊อป (ห้อง 1)' },
+        { time: '13:00', available: false, counselor: 'พี่ป๊อป (ห้อง 1)' },
+        { time: '14:30', available: true, counselor: 'พี่ป๊อป (ห้อง 1)' },
+        { time: '09:00', available: true, counselor: 'พี่น้ำขิง (ห้อง 2)' },
+        { time: '10:30', available: false, counselor: 'พี่น้ำขิง (ห้อง 2)' },
+        { time: '13:00', available: true, counselor: 'พี่น้ำขิง (ห้อง 2)' },
+    ];
+
+    const displaySchedule = schedule.length > 0 ? schedule : mockSchedule;
+
     const counselorData: { [key: string]: { room: string, email: string } } = {
         'พี่ป๊อป (ห้อง 1)': { room: 'ห้อง 1', email: 'fordsaranpong@gmail.com' },
         'พี่น้ำขิง (ห้อง 2)': { room: 'ห้อง 2', email: 'pimkhwan2002@gmail.com' }
@@ -44,8 +57,7 @@ export function BookingPage({
 
     const counselors = Object.keys(counselorData);
 
-    // กรองเวลาเฉพาะของผู้ให้คำปรึกษาที่เลือก และ (ถ้ามี logic เรื่องวัน) สามารถกรองวันที่เลือกได้ที่นี่
-    const filteredTimeSlots = schedule.filter(slot =>
+    const filteredTimeSlots = displaySchedule.filter(slot =>
         slot.counselor === selectedCounselor
     );
 
@@ -165,6 +177,7 @@ export function BookingPage({
                 <p className="text-gray-500">เลือกผู้ให้คำปรึกษา วันที่ และเวลาที่ท่านสะดวก</p>
             </header>
 
+            {/* ส่วนที่แก้ไข: ปรับให้คลิกได้เฉพาะข้อความและไอคอนลูกศร */}
             <div className="mb-8 p-5 bg-amber-50 border border-amber-200 rounded-3xl flex gap-4 items-center shadow-sm">
                 <div className="bg-amber-100 p-2 rounded-full">
                     <Info className="w-5 h-5 text-amber-600" />
@@ -172,10 +185,22 @@ export function BookingPage({
                 <div className="flex-1">
                     <p className="text-sm text-amber-800 leading-relaxed">
                         <strong>คำแนะนำการจอง:</strong> ท่านสามารถมีนัดหมายได้เพียง 1 รายการเท่านั้น
-                        หากต้องการเปลี่ยนเวลา <button onClick={onNavigateToHistory} className="font-bold underline text-amber-900 hover:text-amber-700 decoration-amber-500 underline-offset-4">กรุณายกเลิกนัดเดิมที่หน้าประวัติ</button> ก่อนทำรายการใหม่
+                        {hasExistingBooking ? (
+                            <span
+                                onClick={onNavigateToHistory}
+                                className="block mt-1 font-bold text-red-600 underline cursor-pointer hover:text-red-700 transition-colors"
+                            >
+                                ตรวจพบว่าคุณมีนัดหมายอยู่แล้ว กรุณายกเลิกนัดเดิมที่หน้าประวัติก่อนจองใหม่
+                            </span>
+                        ) : (
+                            <span> หากต้องการเปลี่ยนเวลา <span onClick={onNavigateToHistory} className="font-bold underline text-amber-900 decoration-amber-500 underline-offset-4 cursor-pointer hover:text-black transition-colors">กรุณายกเลิกนัดเดิมที่หน้าประวัติ</span> ก่อนทำรายการใหม่</span>
+                        )}
                     </p>
                 </div>
-                <ArrowRight className="w-5 h-5 text-amber-400" />
+                <ArrowRight
+                    onClick={onNavigateToHistory}
+                    className="w-5 h-5 text-amber-400 cursor-pointer hover:text-amber-600 transition-colors"
+                />
             </div>
 
             <section className="mb-10">
@@ -244,14 +269,14 @@ export function BookingPage({
                                         key={i}
                                         disabled={!slot.available || hasExistingBooking}
                                         onClick={() => { setSelectedSlot(slot); setShowDescriptionModal(true); }}
-                                        className={`w-full p-5 rounded-2xl flex items-center justify-between border-2 transition-all ${slot.available ? 'border-gray-50 bg-gray-50 hover:border-green-500 hover:bg-white' : 'bg-gray-50 opacity-40 cursor-not-allowed'}`}
+                                        className={`w-full p-5 rounded-2xl flex items-center justify-between border-2 transition-all ${slot.available && !hasExistingBooking ? 'border-gray-50 bg-gray-50 hover:border-green-500 hover:bg-white' : 'bg-gray-50 opacity-40 cursor-not-allowed'}`}
                                     >
                                         <div className="flex items-center gap-4">
-                                            <div className={`w-2 h-2 rounded-full ${slot.available ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                            <div className={`w-2 h-2 rounded-full ${slot.available && !hasExistingBooking ? 'bg-green-500' : 'bg-gray-400'}`} />
                                             <span className="font-bold text-gray-700 text-lg">{slot.time} น.</span>
                                         </div>
-                                        <span className={`text-xs font-bold px-4 py-1.5 rounded-full ${slot.available ? 'bg-white text-green-600 border border-green-100' : 'bg-gray-200 text-gray-500'}`}>
-                                            {slot.available ? 'ว่างสำหรับการจอง' : 'มีผู้จองแล้ว'}
+                                        <span className={`text-xs font-bold px-4 py-1.5 rounded-full ${slot.available && !hasExistingBooking ? 'bg-white text-green-600 border border-green-100' : 'bg-gray-200 text-gray-500'}`}>
+                                            {hasExistingBooking ? 'กรุณายกเลิกนัดเดิม' : (slot.available ? 'ว่างสำหรับการจอง' : 'มีผู้จองแล้ว')}
                                         </span>
                                     </button>
                                 ))

@@ -11,10 +11,10 @@ interface Appointment {
 
 interface StudentHomeProps {
     onBookSession: () => void;
+    onViewHistory: () => void; // เพิ่ม Prop สำหรับ Link ไปหน้าประวัติ
     appointments: Appointment[];
     isWaitingForQueue?: boolean;
     queuePosition?: number;
-    // เพิ่ม prop เพื่อใช้ข้ามหน้า waiting ชั่วคราวสำหรับการทดสอบ
     onDebugSkipWaiting?: () => void;
 }
 
@@ -28,18 +28,25 @@ const dailyQuotes = [
 
 export function StudentHome({
     onBookSession,
-    appointments,
+    onViewHistory,
+    appointments: initialAppointments,
     isWaitingForQueue = false,
     queuePosition,
     onDebugSkipWaiting
 }: StudentHomeProps) {
+    // บังคับให้มี Mockup Data ถ้าข้อมูลที่ส่งมาว่าง (เพื่อให้เห็นข้อมูลโชว์แน่นอน)
+    const appointments: Appointment[] = initialAppointments?.length > 0 ? initialAppointments : [
+        { id: '1', date: '15 ม.ค. 2569', time: '10:00', counselor: 'พี่ป๊อป (ห้อง 1)', status: 'upcoming' },
+        { id: '2', date: '12 ม.ค. 2569', time: '14:30', counselor: 'พี่ป๊อป (ห้อง 1)', status: 'completed' },
+        { id: '3', date: '05 ม.ค. 2569', time: '09:00', counselor: 'พี่น้ำขิง (ห้อง 2)', status: 'completed' }
+    ];
+
     const todayQuote = dailyQuotes[new Date().getDay() % dailyQuotes.length];
     const upcomingAppointments = appointments.filter(apt => apt.status === 'upcoming');
 
-    // --- CASE 1: สถานะรอคิวสำหรับนักศึกษาใหม่ (Full Page Waiting) ---
     if (isWaitingForQueue) {
         return (
-            <div className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center p-8 text-center">
+            <div className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center p-8 text-center font-sans">
                 <div className="w-24 h-24 rounded-full bg-blue-50 flex items-center justify-center mb-6">
                     <Timer className="w-12 h-12 text-[var(--color-accent-blue)] animate-pulse" />
                 </div>
@@ -49,15 +56,12 @@ export function StudentHome({
                     เราจะแจ้งเตือนคุณผ่านทางหน้าเพจ, เว็บไซต์ และ Google Calendar เมื่อตารางเวลาลงตัว
                 </p>
 
-                {/* ส่วนลำดับคิวถูกนำออกตามคำขอ */}
-
                 <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 max-w-lg mb-8">
                     <p className="text-amber-800 text-sm italic">
                         "ระหว่างรอ... อย่าลืมใจดีกับตัวเองให้มากๆ นะครับ"
                     </p>
                 </div>
 
-                {/* ปุ่มชั่วคราวสำหรับ Developer/Test เพื่อเข้าหน้า Home ก่อน */}
                 <button
                     onClick={onDebugSkipWaiting}
                     className="flex items-center gap-2 text-sm text-gray-400 hover:text-[var(--color-accent-blue)] transition-colors"
@@ -68,16 +72,13 @@ export function StudentHome({
         );
     }
 
-    // --- CASE 2: หน้า Home ปกติ ---
     return (
         <div className="p-8 max-w-7xl mx-auto font-sans">
-            {/* Welcome Section */}
             <div className="mb-8">
                 <h1 className="text-3xl font-bold text-[var(--color-text-primary)] mb-2">ยินดีต้อนรับกลับมา 👋</h1>
                 <p className="text-[var(--color-text-secondary)]">วันนี้คุณรู้สึกอย่างไรบ้าง? เราพร้อมรับฟังคุณเสมอ</p>
             </div>
 
-            {/* Daily Quote Card */}
             <div className="bg-gradient-to-br from-[var(--color-accent-blue)] to-[var(--color-accent-green)] rounded-[2rem] p-8 mb-8 text-white shadow-lg relative overflow-hidden">
                 <div className="relative z-10 flex items-start gap-4">
                     <Sparkles className="w-8 h-8 shrink-0 opacity-80" />
@@ -90,7 +91,6 @@ export function StudentHome({
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                {/* Book Session Card */}
                 <div className="lg:col-span-1">
                     <button
                         onClick={onBookSession}
@@ -106,11 +106,13 @@ export function StudentHome({
                     </button>
                 </div>
 
-                {/* Upcoming Appointments Section */}
                 <div className="lg:col-span-2 bg-white rounded-[2rem] p-8 shadow-sm border border-[var(--color-border)]">
                     <div className="flex items-center justify-between mb-6">
                         <h3 className="text-lg font-bold text-gray-900">การนัดหมายที่กำลังจะมาถึง</h3>
-                        <button className="text-xs text-[var(--color-accent-blue)] font-bold hover:underline">
+                        <button
+                            onClick={onViewHistory} // แก้ไขให้กดแล้วไปหน้าประวัติ
+                            className="text-xs text-[var(--color-accent-blue)] font-bold hover:underline"
+                        >
                             ประวัติทั้งหมด
                         </button>
                     </div>
@@ -153,7 +155,6 @@ export function StudentHome({
                 </div>
             </div>
 
-            {/* Quick Stats */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
                     <div className="flex items-center gap-4">
