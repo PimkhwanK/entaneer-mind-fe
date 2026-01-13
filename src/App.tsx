@@ -5,6 +5,7 @@ import { PDPAModal } from './components/PDPAModal';
 import { TokenModal } from './components/TokenModal';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AlertCircle, Calendar, Clock, User, Sparkles, Timer, ArrowRight, Info } from 'lucide-react';
+import { apiService } from './services/api.service';
 
 import { API_ENDPOINTS, getAuthHeader } from './config/api.config';
 import type { UserRole, Appointment, WaitingStudent, TodayAppointment, TimeBlock } from './types';
@@ -275,12 +276,27 @@ export default function App() {
     checkAuth();
   }, [checkAuth]);
 
+  const handleTokenSubmit = async (code: string) => {
+    try {
+      await apiService.verifyCaseCode(code);
+      localStorage.setItem('token_submitted', 'true');
+      setShowToken(false);
+      alert("ลงทะเบยีนสำ เรจ็ ! กำ ลังเขา้ส่รู ะบบ...");
+      window.location.reload();
+    } catch (error: any) {
+      console.error(error);
+      alert(error.message || "รหัสไมถ่ กู ต้อง");
+    }
+  };
+
   const handleLogout = () => { localStorage.clear(); setAppState('landing'); setUserRole(null); setUserData(null); setCurrentPage(''); setDebugForceShowHome(false); };
 
   const renderContent = () => {
     if (!userRole || !userData || showPDPA || showToken) return null;
     if (userRole === 'student') {
-      const hasCase = (userData.studentProfile?.cases?.length || 0) > 0;
+      const studentProfile = userData?.studentProfile || {};
+      const cases = studentProfile.cases || [];
+      const hasCase = cases.length > 0;
       const shouldShowWaiting = !hasCase && !debugForceShowHome;
       switch (currentPage) {
         case 'student-home': return (
@@ -366,7 +382,7 @@ export default function App() {
         {renderContent()}
       </Layout>
       {showPDPA && <PDPAModal onAccept={() => { localStorage.setItem('pdpa_accepted', 'true'); setShowPDPA(false); setShowToken(true); }} />}
-      {showToken && <TokenModal onSubmit={() => { localStorage.setItem('token_submitted', 'true'); setShowToken(false); if (userRole) loadInitialData(userRole); }} />}
+      {showToken && <TokenModal onSubmit={handleTokenSubmit} />}
     </GoogleOAuthProvider>
   );
 }
