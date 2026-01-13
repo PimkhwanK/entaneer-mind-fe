@@ -6,7 +6,6 @@ import {
     FileText, MessageSquare, ClipboardCheck
 } from 'lucide-react';
 
-// --- Interfaces ---
 interface CaseNote {
     id: string;
     caseCode: string;
@@ -38,7 +37,6 @@ const moodLevels = [
     { value: 5, label: 'Very Good', icon: '😊' },
 ];
 
-// --- Mockup Data ---
 const MOCK_CASES: CaseNote[] = [
     {
         id: '1',
@@ -64,7 +62,7 @@ const MOCK_CASES: CaseNote[] = [
         sessionDate: '2026-01-12',
         sessionTime: '14:30',
         moodScale: 4,
-        selectedTags: ['Relationship Issues', 'Communication'],
+        selectedTags: ['Relationship Issues'],
         sessionSummary: 'ปัญหาความขัดแย้งกับเพื่อนร่วมกลุ่มในวิชาสัมมนา เนื่องจากความคิดเห็นไม่ตรงกันในการแบ่งงาน',
         interventions: 'ฝึกการสื่อสารแบบประนีประนอม (Assertive Communication)',
         followUp: 'นัดคุยความคืบหน้าสัปดาห์หน้าหลังจากได้คุยกับเพื่อนในกลุ่มแล้ว',
@@ -88,17 +86,26 @@ const MOCK_CASES: CaseNote[] = [
 ];
 
 export function CaseNotePage() {
-    // --- States ---
     const [view, setView] = useState<'list' | 'create' | 'detail'>('list');
     const [selectedCase, setSelectedCase] = useState<CaseNote | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterTag, setFilterTag] = useState('All');
+    const [sortBy, setSortBy] = useState('date-newest');
     const [customTagInput, setCustomTagInput] = useState('');
     const [isLoading, setIsLoading] = useState(true);
-
     const [cases, setCases] = useState<CaseNote[]>([]);
+    const [newNote, setNewNote] = useState<Partial<CaseNote>>({
+        caseCode: '',
+        studentName: '',
+        sessionDate: new Date().toISOString().split('T')[0],
+        sessionTime: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
+        moodScale: 3,
+        selectedTags: [],
+        sessionSummary: '',
+        interventions: '',
+        followUp: ''
+    });
 
-    // --- Fetch Data from DB ---
     useEffect(() => {
         const fetchCases = async () => {
             try {
@@ -120,33 +127,17 @@ export function CaseNotePage() {
         fetchCases();
     }, []);
 
-    // State สำหรับการสร้างบันทึกใหม่
-    const [newNote, setNewNote] = useState<Partial<CaseNote>>({
-        caseCode: '',
-        studentName: '',
-        sessionDate: new Date().toISOString().split('T')[0],
-        sessionTime: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
-        moodScale: 3,
-        selectedTags: [],
-        sessionSummary: '',
-        interventions: '',
-        followUp: ''
-    });
-
-    // --- Handlers ---
     const handleSave = async () => {
         if (!newNote.studentName || !newNote.caseCode) {
             alert("กรุณาระบุชื่อนักศึกษาและรหัสเคส");
             return;
         }
-
         try {
             const response = await fetch('/api/casenotes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newNote),
             });
-
             if (response.ok) {
                 const savedNote = await response.json();
                 setCases([savedNote, ...cases]);
@@ -162,7 +153,6 @@ export function CaseNotePage() {
                 alert('บันทึก Case Note เรียบร้อยแล้ว (Local Mode)');
                 setView('list');
             }
-
             setNewNote({
                 caseCode: '',
                 studentName: '',
@@ -202,22 +192,40 @@ export function CaseNotePage() {
         setView('detail');
     };
 
-    // --- Filter Logic ---
-    const filteredCases = cases.filter(c => {
-        const matchesSearch = (c.studentName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-            (c.caseCode?.toLowerCase() || '').includes(searchTerm.toLowerCase());
-        const matchesTag = filterTag === 'All' || c.selectedTags.includes(filterTag);
-        return matchesSearch && matchesTag;
-    });
+    const filteredCases = cases
+        .filter(c => {
+            const matchesSearch = (c.studentName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                (c.caseCode?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+            const matchesTag = filterTag === 'All' || c.selectedTags.includes(filterTag);
+            return matchesSearch && matchesTag;
+        })
+        .sort((a, b) => {
+            switch (sortBy) {
+                case 'date-newest':
+                    return new Date(b.sessionDate).getTime() - new Date(a.sessionDate).getTime();
+                case 'date-oldest':
+                    return new Date(a.sessionDate).getTime() - new Date(b.sessionDate).getTime();
+                case 'name-asc':
+                    return (a.studentName || '').localeCompare(b.studentName || '', 'th');
+                case 'name-desc':
+                    return (b.studentName || '').localeCompare(a.studentName || '', 'th');
+                case 'mood-high':
+                    return b.moodScale - a.moodScale;
+                case 'mood-low':
+                    return a.moodScale - b.moodScale;
+                case 'case-code':
+                    return (a.caseCode || '').localeCompare(b.caseCode || '');
+                default:
+                    return 0;
+            }
+        });
 
-    // --- Render: DETAIL VIEW ---
     if (view === 'detail' && selectedCase) {
         return (
             <div className="p-8 max-w-5xl mx-auto font-sans bg-[#FBFBFB] min-h-screen">
                 <button onClick={() => setView('list')} className="flex items-center gap-2 text-gray-500 hover:text-green-600 mb-6 transition-colors font-medium">
                     <ArrowLeft className="w-4 h-4" /> กลับสู่รายการเคส
                 </button>
-
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-8">
                     <div>
                         <div className="flex items-center gap-3 mb-2">
@@ -230,15 +238,13 @@ export function CaseNotePage() {
                         </p>
                     </div>
                     <div className="flex gap-2">
-                        <button className="p-4 bg-white border border-gray-100 rounded-2xl text-gray-400 hover:text-gray-600 shadow-sm transition-all">
-                            <X className="w-5 h-5" onClick={() => setView('list')} />
+                        <button className="p-4 bg-white border border-gray-100 rounded-2xl text-gray-400 hover:text-gray-600 shadow-sm transition-all" onClick={() => setView('list')}>
+                            <X className="w-5 h-5" />
                         </button>
                     </div>
                 </div>
-
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="lg:col-span-2 space-y-6">
-                        {/* Summary Section */}
                         <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100 relative overflow-hidden">
                             <div className="absolute top-0 right-0 p-8 opacity-5">
                                 <MessageSquare className="w-24 h-24" />
@@ -250,8 +256,6 @@ export function CaseNotePage() {
                                 {selectedCase.sessionSummary || "ไม่มีข้อมูลสรุปเซสชัน"}
                             </p>
                         </div>
-
-                        {/* Interventions Section */}
                         <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100">
                             <h3 className="text-lg font-bold mb-5 flex items-center gap-2 text-gray-700">
                                 <ShieldCheck className="w-5 h-5 text-blue-500" /> Interventions & Actions
@@ -262,8 +266,6 @@ export function CaseNotePage() {
                                 </p>
                             </div>
                         </div>
-
-                        {/* Follow-up Section */}
                         <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100">
                             <h3 className="text-lg font-bold mb-5 flex items-center gap-2 text-gray-700">
                                 <ClipboardCheck className="w-5 h-5 text-amber-500" /> Follow-up Plan
@@ -273,20 +275,16 @@ export function CaseNotePage() {
                             </p>
                         </div>
                     </div>
-
                     <div className="space-y-6">
-                        {/* Mood Sidebar */}
                         <div className="bg-white rounded-[2rem] p-8 border border-gray-100 shadow-sm text-center">
                             <h3 className="font-bold mb-6 text-gray-400 uppercase text-xs tracking-widest">Client Mood</h3>
-                            <div className="text-7xl mb-4 animate-bounce-slow">
+                            <div className="text-7xl mb-4">
                                 {moodLevels.find(m => m.value === selectedCase.moodScale)?.icon}
                             </div>
                             <p className="text-xl font-black text-gray-700">
                                 {moodLevels.find(m => m.value === selectedCase.moodScale)?.label}
                             </p>
                         </div>
-
-                        {/* Tags Sidebar */}
                         <div className="bg-white rounded-[2rem] p-8 border border-gray-100 shadow-sm">
                             <h3 className="font-bold mb-5 text-gray-700 flex items-center gap-2"><Tag className="w-4 h-4" /> Issues Identified</h3>
                             <div className="flex flex-wrap gap-2">
@@ -298,10 +296,8 @@ export function CaseNotePage() {
                                 {selectedCase.selectedTags?.length === 0 && <span className="text-gray-300 italic text-sm">No tags assigned</span>}
                             </div>
                         </div>
-
-                        {/* Consent Sidebar */}
                         <div className={`rounded-[2rem] p-6 border flex items-center gap-4 ${selectedCase.consentSigned ? 'bg-green-50 border-green-100 text-green-700' : 'bg-red-50 border-red-100 text-red-700'}`}>
-                            <div className={`p-3 rounded-2xl ${selectedCase.consentSigned ? 'bg-white' : 'bg-white'}`}>
+                            <div className="p-3 rounded-2xl bg-white">
                                 <ShieldCheck className="w-6 h-6" />
                             </div>
                             <div>
@@ -315,26 +311,23 @@ export function CaseNotePage() {
         );
     }
 
-    // --- Render: CREATE VIEW ---
     if (view === 'create') {
         return (
             <div className="p-8 max-w-5xl mx-auto font-sans bg-[#FBFBFB] min-h-screen">
                 <button onClick={() => setView('list')} className="flex items-center gap-2 text-gray-500 hover:text-green-600 mb-6 transition-colors font-medium">
                     <ArrowLeft className="w-4 h-4" /> กลับสู่รายการเคส
                 </button>
-
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-gray-800">New Session Record</h1>
-                    <p className="text-gray-500 font-medium">บันทึกรายละเอียดการให้คำปรึกษาใหม่ตามมาตรฐาน PDPA</p>
+                    <p className="text-gray-500 font-medium mt-1">บันทึกรายละเอียดการให้คำปรึกษาใหม่ตามมาตรฐาน PDPA</p>
                 </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2 space-y-6">
                         <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100">
                             <h3 className="text-lg font-bold mb-5 flex items-center gap-2 text-gray-700">
-                                <User className="w-5 h-5 text-green-500" /> ข้อมูลเบื้องต้น
+                                <User className="w-5 h-5 text-green-500" /> ข้อมูลพื้นฐาน
                             </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
                                 <div className="space-y-2">
                                     <label className="text-xs font-black text-gray-400 uppercase ml-1">Case Code</label>
                                     <input
@@ -354,8 +347,47 @@ export function CaseNotePage() {
                                     />
                                 </div>
                             </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black text-gray-400 uppercase ml-1 flex items-center gap-1">
+                                        <Calendar className="w-3 h-3" /> Session Date
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={newNote.sessionDate}
+                                        onChange={(e) => setNewNote({ ...newNote, sessionDate: e.target.value })}
+                                        className="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none focus:ring-2 focus:ring-green-500 transition-all font-medium text-gray-600"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black text-gray-400 uppercase ml-1 flex items-center gap-1">
+                                        <Clock className="w-3 h-3" /> Session Time
+                                    </label>
+                                    <input
+                                        type="time"
+                                        value={newNote.sessionTime}
+                                        onChange={(e) => setNewNote({ ...newNote, sessionTime: e.target.value })}
+                                        className="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none focus:ring-2 focus:ring-green-500 transition-all font-medium text-gray-600"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-black text-gray-400 uppercase ml-1">Mood Assessment</label>
+                                <div className="grid grid-cols-5 gap-3 p-4 bg-gray-50 rounded-2xl">
+                                    {moodLevels.map(m => (
+                                        <button
+                                            key={m.value}
+                                            onClick={() => setNewNote({ ...newNote, moodScale: m.value })}
+                                            className={`text-3xl p-4 rounded-xl transition-all duration-300 flex flex-col items-center gap-2 ${newNote.moodScale === m.value ? 'bg-white ring-2 ring-green-500 scale-105 shadow-md' : 'grayscale opacity-40 hover:opacity-100 hover:grayscale-0 hover:bg-white/50'}`}
+                                            title={m.label}
+                                        >
+                                            <span>{m.icon}</span>
+                                            <span className="text-[9px] font-bold text-gray-500">{m.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
-
                         <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100">
                             <h3 className="text-lg font-bold mb-4 text-gray-700">Session Summary (Keywords)</h3>
                             <textarea
@@ -366,7 +398,6 @@ export function CaseNotePage() {
                                 onChange={(e) => setNewNote({ ...newNote, sessionSummary: e.target.value })}
                             />
                         </div>
-
                         <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100">
                             <h3 className="text-lg font-bold mb-4 text-gray-700">Interventions Applied</h3>
                             <textarea
@@ -377,7 +408,6 @@ export function CaseNotePage() {
                                 onChange={(e) => setNewNote({ ...newNote, interventions: e.target.value })}
                             />
                         </div>
-
                         <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100">
                             <h3 className="text-lg font-bold mb-4 text-gray-700">Follow-up Plan</h3>
                             <textarea
@@ -389,44 +419,19 @@ export function CaseNotePage() {
                             />
                         </div>
                     </div>
-
                     <div className="space-y-6">
                         <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm">
-                            <h3 className="font-bold mb-4 text-gray-700 flex items-center gap-2"><Clock className="w-4 h-4" /> Schedule</h3>
-                            <div className="space-y-3">
-                                <input type="date" value={newNote.sessionDate} onChange={(e) => setNewNote({ ...newNote, sessionDate: e.target.value })} className="w-full p-3 bg-gray-50 rounded-xl border-none text-sm font-bold text-gray-600" />
-                                <input type="time" value={newNote.sessionTime} onChange={(e) => setNewNote({ ...newNote, sessionTime: e.target.value })} className="w-full p-3 bg-gray-50 rounded-xl border-none text-sm font-bold text-gray-600" />
-                            </div>
-                        </div>
-
-                        <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm">
-                            <h3 className="font-bold mb-4 text-gray-700">Mood Assessment</h3>
-                            <div className="flex justify-between items-center px-2">
-                                {moodLevels.map(m => (
-                                    <button
-                                        key={m.value}
-                                        onClick={() => setNewNote({ ...newNote, moodScale: m.value })}
-                                        className={`text-3xl p-2 rounded-2xl transition-all duration-300 ${newNote.moodScale === m.value ? 'bg-green-50 ring-2 ring-green-500 scale-110 shadow-sm' : 'grayscale opacity-40 hover:opacity-100 hover:grayscale-0'}`}
-                                        title={m.label}
-                                    >
-                                        {m.icon}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm">
                             <h3 className="font-bold mb-4 text-gray-700 flex items-center gap-2"><Tag className="w-4 h-4" /> Problem Tags</h3>
-                            <div className="flex flex-wrap gap-2 mb-4 min-h-[40px] p-2 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+                            <div className="flex flex-wrap gap-2 mb-4 min-h-[60px] p-3 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
                                 {newNote.selectedTags?.map(tag => (
-                                    <span key={tag} className="flex items-center gap-1 px-3 py-1 bg-green-500 text-white rounded-lg text-[11px] font-bold shadow-sm animate-in zoom-in-75">
+                                    <span key={tag} className="flex items-center gap-1 px-3 py-1.5 bg-green-500 text-white rounded-lg text-[11px] font-bold shadow-sm">
                                         {tag}
                                         <X className="w-3 h-3 cursor-pointer hover:text-red-200" onClick={() => toggleTag(tag)} />
                                     </span>
                                 ))}
-                                {newNote.selectedTags?.length === 0 && <span className="text-gray-300 text-[11px] italic font-medium">ยังไม่ได้เลือก Tag...</span>}
+                                {newNote.selectedTags?.length === 0 && <span className="text-gray-300 text-xs italic font-medium self-center">ยังไม่ได้เลือก Tag...</span>}
                             </div>
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                                 <input
                                     placeholder="พิมพ์ Tag ใหม่แล้วกด Enter..."
                                     className="w-full p-3 bg-gray-50 rounded-xl border-none text-xs outline-none focus:ring-2 focus:ring-green-400 font-medium"
@@ -434,7 +439,7 @@ export function CaseNotePage() {
                                     onChange={(e) => setCustomTagInput(e.target.value)}
                                     onKeyDown={addCustomTag}
                                 />
-                                <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+                                <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto pr-2">
                                     {defaultProblemTags.map(tag => (
                                         <button
                                             key={tag}
@@ -447,7 +452,6 @@ export function CaseNotePage() {
                                 </div>
                             </div>
                         </div>
-
                         <button
                             onClick={handleSave}
                             className="w-full py-5 bg-green-500 text-white rounded-[1.5rem] font-black text-lg shadow-xl shadow-green-200 hover:bg-green-600 hover:-translate-y-1 transition-all active:scale-95 flex items-center justify-center gap-3"
@@ -460,7 +464,6 @@ export function CaseNotePage() {
         );
     }
 
-    // --- Render: LIST VIEW ---
     return (
         <div className="p-8 max-w-6xl mx-auto font-sans bg-[#FBFBFB] min-h-screen">
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
@@ -475,8 +478,7 @@ export function CaseNotePage() {
                     <Plus className="w-5 h-5" /> New Case Note
                 </button>
             </header>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
                 <div className="md:col-span-2 relative">
                     <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
                     <input
@@ -487,12 +489,25 @@ export function CaseNotePage() {
                     />
                 </div>
                 <select
-                    className="bg-white border border-gray-100 rounded-2xl px-5 py-4 outline-none text-gray-500 font-bold text-sm shadow-sm appearance-none cursor-pointer"
+                    className="bg-white border border-gray-100 rounded-2xl px-5 py-4 outline-none text-gray-500 font-bold text-sm shadow-sm cursor-pointer"
                     value={filterTag}
                     onChange={(e) => setFilterTag(e.target.value)}
                 >
                     <option value="All">ทุกอาการ/ปัญหา</option>
                     {defaultProblemTags.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <select
+                    className="bg-white border border-gray-100 rounded-2xl px-5 py-4 outline-none text-gray-500 font-bold text-sm shadow-sm cursor-pointer"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                >
+                    <option value="date-newest">📅 วันที่ล่าสุด</option>
+                    <option value="date-oldest">📅 วันที่เก่าสุด</option>
+                    <option value="name-asc">👤 ชื่อ A-Z</option>
+                    <option value="name-desc">👤 ชื่อ Z-A</option>
+                    <option value="mood-high">😊 Mood สูง-ต่ำ</option>
+                    <option value="mood-low">😢 Mood ต่ำ-สูง</option>
+                    <option value="case-code">🔢 รหัสเคส</option>
                 </select>
                 <div className="flex bg-white border border-gray-100 rounded-2xl p-1 shadow-sm">
                     <button className="flex-1 rounded-xl bg-gray-50 text-green-600 font-black text-xs flex items-center justify-center gap-2 transition-all">
@@ -503,7 +518,6 @@ export function CaseNotePage() {
                     </button>
                 </div>
             </div>
-
             <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-50 overflow-hidden mb-10">
                 <table className="w-full text-left">
                     <thead className="bg-gray-50/70">
@@ -564,7 +578,6 @@ export function CaseNotePage() {
                     </div>
                 )}
             </div>
-
             <div className="p-6 bg-amber-50 rounded-[2rem] border border-amber-100 flex items-center gap-5">
                 <div className="bg-white p-3 rounded-2xl shadow-sm text-amber-500">
                     <ShieldCheck className="w-6 h-6" />

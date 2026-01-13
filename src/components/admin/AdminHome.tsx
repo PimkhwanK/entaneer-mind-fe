@@ -14,13 +14,37 @@ interface AdminStats {
 }
 
 interface AdminHomeProps {
-    stats: AdminStats;
+    stats?: AdminStats; // ปรับเป็น optional เพื่อให้ใช้ค่า mockup ได้
     onNavigateToApprovals?: () => void;
     onGenerateReport?: () => void;
 }
 
-export function AdminHome({ stats, onNavigateToApprovals, onGenerateReport }: AdminHomeProps) {
-    // ป้องกันกรณี stats เป็น undefined
+// --- Mockup Data ---
+const MOCK_ADMIN_STATS: AdminStats = {
+    totalUsers: 1250,
+    activeStudents: 1180,
+    activeCounselors: 15,
+    pendingApprovals: 8,
+    totalSessions: 450,
+    sessionsThisMonth: 42,
+    upcomingSessions: 12,
+    averageWaitTime: '1.5d',
+    topIssueTags: [
+        { tag: 'Academic Stress', count: 120 },
+        { tag: 'Anxiety', count: 85 },
+        { tag: 'Relationship Issues', count: 64 },
+        { tag: 'Depression', count: 42 },
+        { tag: 'Financial Issues', count: 30 }
+    ]
+};
+
+export function AdminHome({
+    stats = MOCK_ADMIN_STATS, // ใช้ Mockup เป็นค่าเริ่มต้น
+    onNavigateToApprovals,
+    onGenerateReport
+}: AdminHomeProps) {
+
+    // ป้องกันกรณี stats เป็น undefined (ถ้าไม่ได้ส่งผ่าน props และไม่มี default)
     if (!stats) {
         return <div className="p-8 text-center text-gray-500">กำลังโหลดข้อมูลสถิติ...</div>;
     }
@@ -143,5 +167,4 @@ export function AdminHome({ stats, onNavigateToApprovals, onGenerateReport }: Ad
     );
 }
 
-// เพิ่มบรรทัดนี้เพื่อให้ App.tsx เรียกใช้ได้แบบ default
 export default AdminHome;

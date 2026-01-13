@@ -16,7 +16,6 @@ export interface TodayAppointment {
     caseCode: string;
 }
 
-// --- สำหรับ Manage Schedule ---
 export interface TimeBlock {
     day: string;
     time: string;
@@ -26,11 +25,11 @@ export interface TimeBlock {
 }
 
 export interface UserData {
-    userId: number; // เปลี่ยนจาก id เป็น userId และเป็น number
+    userId: number;
     firstName: string;
     lastName: string;
     cmuAccount: string;
-    roleName: string; // 'student', 'counselor', 'admin'
+    roleName: string;
     phoneNum?: string;
     gender?: string;
     studentProfile?: {
@@ -41,7 +40,6 @@ export interface UserData {
     };
 }
 
-// --- Interface เดิมที่คุณมี (ปรับให้ตรงกับ Backend) ---
 export interface Appointment {
     id: string;
     date: string;
