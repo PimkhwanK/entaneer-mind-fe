@@ -87,7 +87,7 @@ export function BookingPage({
 
         const event = {
             summary: `นัดหมายปรึกษา: ${counselorName} (Entaneer Mind)`,
-            description: `รหัสนักศึกษา: ${info.studentId}\nเบอร์โทร: ${info.phone}\nเรื่องที่ปรึกษา: ${info.description}`,
+            description: `รหัสประจำตัว: ${info.studentId}\nเบอร์โทร: ${info.phone}\nเรื่องที่ปรึกษา: ${info.description}`,
             start: { dateTime: startDateTime.toISOString(), timeZone: 'Asia/Bangkok' },
             end: { dateTime: endDateTime.toISOString(), timeZone: 'Asia/Bangkok' },
             attendees: [
@@ -126,7 +126,7 @@ export function BookingPage({
 
     const handleBooking = async () => {
         if (studentInfo.studentId.length !== 9) {
-            alert('รหัสนักศึกษาต้องมี 9 หลัก');
+            alert('รหัสประจำตัวต้องมี 9 หลัก');
             return;
         }
         if (studentInfo.phone.length !== 10) {
@@ -306,7 +306,7 @@ export function BookingPage({
                             </div>
 
                             <div className="relative">
-                                <label className="flex items-center gap-2 text-xs font-black text-gray-400 mb-2 uppercase tracking-tighter">รหัสนักศึกษา *</label>
+                                <label className="flex items-center gap-2 text-xs font-black text-gray-400 mb-2 uppercase tracking-tighter">รหัสประจำตัว *</label>
                                 <div className="relative">
                                     <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                     <input
@@ -335,7 +335,7 @@ export function BookingPage({
 
                             <div>
                                 <label className="block text-xs font-black text-gray-400 mb-2 uppercase tracking-tighter">เรื่องที่ต้องการปรึกษา</label>
-                                <textarea className="w-full p-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-green-500 outline-none min-h-[100px] resize-none" placeholder="ระบุสิ่งที่กังวล..." value={studentInfo.description} onChange={(e) => setStudentInfo({ ...studentInfo, description: e.target.value })} />
+                                <textarea className="w-full p-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-green-500 outline-none min-h-[100px] resize-none" placeholder="เรื่องที่ต้องการปรึกษาครั้งถัดไป..." value={studentInfo.description} onChange={(e) => setStudentInfo({ ...studentInfo, description: e.target.value })} />
                             </div>
 
                             <button onClick={() => !syncWithGoogle && loginToGoogle()} className={`w-full p-5 rounded-2xl border-2 flex items-center justify-between transition-all ${syncWithGoogle ? 'bg-green-600 border-green-600 text-white' : 'border-gray-100 bg-white hover:border-gray-200'}`}>
