@@ -402,7 +402,7 @@ export default function App() {
       </Layout>
       {showUrgency && <UrgencyModal onSubmit={() =>{handleUrgencySubmit; setShowUrgency(false); setShowPDPA(true);}} />}
       {showPDPA && <PDPAModal onAccept={() => { localStorage.setItem('pdpa_accepted', 'true'); setShowPDPA(false); setShowToken(true); }} />}
-      {showToken && <TokenModal onSubmit={handleTokenSubmit} />}
+      {showToken && <TokenModal onSubmit={() =>{handleTokenSubmit; setShowUrgency(false); setShowPDPA(false);setShowToken(false);}} />}
     </GoogleOAuthProvider>
   );
 }
