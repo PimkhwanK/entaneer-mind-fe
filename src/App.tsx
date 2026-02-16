@@ -19,6 +19,7 @@ import { CaseNotePage } from './components/counselor/CaseNotePage';
 import { ManageSchedule } from './components/counselor/ManageSchedule';
 import { AdminHome } from './components/admin/AdminHome';
 import { UserManagement } from './components/admin/UserManagement';
+import { UrgencyModal } from './components/ClientUrgencyPage'; 
 
 // --- Interface & Component: StudentHome ---
 interface StudentHomeProps {
@@ -194,6 +195,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [showUrgency,setShowUrgency] = useState(false);
   const [showPDPA, setShowPDPA] = useState(false);
   const [showToken, setShowToken] = useState(false);
   const [debugForceShowHome, setDebugForceShowHome] = useState(false);
@@ -257,7 +259,8 @@ export default function App() {
         setUserData(data);
         const role = (data.roleName || '').toLowerCase() as UserRole;
         setUserRole(role);
-        if (localStorage.getItem('pdpa_accepted') !== 'true') setShowPDPA(true);
+        if(localStorage.getItem('urgency_submitted') !== 'true') setShowUrgency(true);
+        else if (localStorage.getItem('pdpa_accepted') !== 'true') setShowPDPA(true);
         else if (localStorage.getItem('token_submitted') !== 'true') setShowToken(true);
         else if (role) loadInitialData(role);
         setAppState('app');
@@ -276,23 +279,37 @@ export default function App() {
     checkAuth();
   }, [checkAuth]);
 
+  const handleUrgencySubmit = async (text: string) => {
+    try {
+      const urgencyValue = text.trim() ? text.trim() : "ไม่ได้ระบุ";
+
+      localStorage.setItem('user_urgency', urgencyValue);
+      localStorage.setItem('urgency_submitted', 'true');
+    
+    alert("บันทึกเรียบร้อยแล้ว");
+  } catch (error: any) {
+    console.error(error);
+    alert("เกิดข้อผิดพลาดในการบันทึก");
+  }
+  };
+
   const handleTokenSubmit = async (code: string) => {
     try {
       await apiService.verifyCaseCode(code);
       localStorage.setItem('token_submitted', 'true');
       setShowToken(false);
-      alert("ลงทะเบยีนสำ เรจ็ ! กำ ลังเขา้ส่รู ะบบ...");
+      alert("ลงทะเบียนสำเร็จ! กำลังเข้าสู่ระบบ...");
       window.location.reload();
     } catch (error: any) {
       console.error(error);
-      alert(error.message || "รหัสไมถ่ กู ต้อง");
+      alert(error.message || "รหัสไม่ถูกต้อง");
     }
   };
 
   const handleLogout = () => { localStorage.clear(); setAppState('landing'); setUserRole(null); setUserData(null); setCurrentPage(''); setDebugForceShowHome(false); };
 
   const renderContent = () => {
-    if (!userRole || !userData || showPDPA || showToken) return null;
+    if (!userRole || !userData || showUrgency || showPDPA || showToken) return null;
     if (userRole === 'student') {
       const studentProfile = userData?.studentProfile || {};
       const cases = studentProfile.cases || [];
@@ -381,6 +398,7 @@ export default function App() {
       <Layout userRole={userRole} currentPage={currentPage} onNavigate={setCurrentPage} onLogout={handleLogout}>
         {renderContent()}
       </Layout>
+      {showUrgency && <UrgencyModal onSubmit={() =>{handleUrgencySubmit; setShowUrgency(false); setShowPDPA(true);}} />}
       {showPDPA && <PDPAModal onAccept={() => { localStorage.setItem('pdpa_accepted', 'true'); setShowPDPA(false); setShowToken(true); }} />}
       {showToken && <TokenModal onSubmit={handleTokenSubmit} />}
     </GoogleOAuthProvider>
