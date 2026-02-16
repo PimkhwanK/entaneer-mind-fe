@@ -47,7 +47,7 @@ export function Layout({ children, userRole, currentPage, onNavigate, onLogout }
             <aside className="w-64 bg-white shadow-sm border-r border-[var(--color-border)] flex flex-col">
                 <div className="p-6 border-b border-[var(--color-border)]">
                     <h3 className="text-[var(--color-accent-blue)]">Entaneer Mind</h3>
-                    <p className="text-sm text-[var(--color-text-secondary)] mt-1 capitalize">{userRole}</p>
+                    <p className="text-sm text-[var(--color-text-secondary)] mt-1 capitalize">{userRole !== 'counselor' ? 'ผู้รับคำปรึกษา' : userRole}</p>
                 </div>
 
                 <nav className="flex-1 p-4 space-y-2">
