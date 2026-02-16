@@ -10,6 +10,8 @@ export function UrgencyModal({ onSubmit }: UrgencyModalProps) {
     const [urgencyDetails, setUrgencyDetails] = useState('');
     const [error, setError] = useState('');
 
+
+    {/*สำหรับตกแต่งสีของปุ่ม*/}
     const urgencyOptions = [
        { 
             id: 'low', 
@@ -52,6 +54,7 @@ export function UrgencyModal({ onSubmit }: UrgencyModalProps) {
 
                 <form onSubmit={handleSubmit} className="space-y-4">
 
+                    {/*ตัวเลือกระดับความฉุกเฉิน*/}
                     <div className="grid grid-cols-1 gap-3">
                         {urgencyOptions.map((opt) => {
                             const isActive = urgencyLevel === opt.id;
@@ -77,7 +80,7 @@ export function UrgencyModal({ onSubmit }: UrgencyModalProps) {
                         })}
                     </div>
 
-
+                    {/*รายละเอียดเพิ่มเติมเผื่ออยากอธิบายพี่ป๊อบ*/}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             รายละเอียดเพิ่มเติม (ถ้ามี)
