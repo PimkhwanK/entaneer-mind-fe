@@ -129,7 +129,7 @@ export function StudentProfile({ profile: initialProfile, onSave }: StudentProfi
                         </div>
                         <div>
                             <h2 className="text-white mb-1">{profile.name}</h2>
-                            <p className="text-white/80">{/*Student ID: */}{'รหัสนักศึกษา: '}{profile.studentId}</p>
+                            <p className="text-white/80">{/*Student ID: */}{'รหัสประจำตัว: '}{profile.studentId}</p>
                             <p className="text-white/80">{profile.department}</p>
                         </div>
                     </div>
@@ -188,7 +188,7 @@ export function StudentProfile({ profile: initialProfile, onSave }: StudentProfi
 
                         <div>
                             <label className="block text-sm mb-2 text-[var(--color-text-secondary)]">
-                                {/*Student ID*/}{'รหัสนักศึกษา'}
+                                {/*Student ID*/}{'รหัสประจำตัว'}
                             </label>
                             <input
                                 type="text"
