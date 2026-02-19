@@ -3,7 +3,7 @@ import { LogOut, Home, Calendar, User, Users, Settings, FileText, Clock } from '
 
 interface LayoutProps {
     children: React.ReactNode;
-    userRole: 'student' | 'counselor' | 'admin' | null;
+    userRole: 'client' | 'counselor' | 'admin' | null;
     currentPage: string;
     onNavigate: (page: string) => void;
     onLogout: () => void;
@@ -16,12 +16,12 @@ export function Layout({ children, userRole, currentPage, onNavigate, onLogout }
 
     const getNavItems = () => {
         switch (userRole) {
-            case 'student':
+            case 'client':
                 return [
-                    { icon: Home, label: 'Home', page: 'student-home' },
-                    { icon: Calendar, label: 'Book Session', page: 'student-booking' },
-                    { icon: FileText, label: 'History', page: 'student-history' },
-                    { icon: User, label: 'Profile', page: 'student-profile' },
+                    { icon: Home, label: 'Home', page: 'client-home' },
+                    { icon: Calendar, label: 'Book Session', page: 'client-booking' },
+                    { icon: FileText, label: 'History', page: 'client-history' },
+                    { icon: User, label: 'Profile', page: 'client-profile' },
                 ];
             case 'counselor':
                 return [
@@ -47,7 +47,7 @@ export function Layout({ children, userRole, currentPage, onNavigate, onLogout }
             <aside className="w-64 bg-white shadow-sm border-r border-[var(--color-border)] flex flex-col">
                 <div className="p-6 border-b border-[var(--color-border)]">
                     <h3 className="text-[var(--color-accent-blue)]">Entaneer Mind</h3>
-                    <p className="text-sm text-[var(--color-text-secondary)] mt-1 capitalize">{userRole}</p>
+                    <p className="text-sm text-[var(--color-text-secondary)] mt-1 capitalize">{userRole === 'client' ? 'ผู้รับคำปรึกษา' : userRole}</p>
                 </div>
 
                 <nav className="flex-1 p-4 space-y-2">

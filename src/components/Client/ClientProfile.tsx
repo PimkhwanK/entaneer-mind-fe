@@ -1,12 +1,12 @@
 import { useState, useRef } from 'react';
 import { User, Mail, Phone, Calendar, Save, Edit, Camera } from 'lucide-react';
 
-interface StudentProfileProps {
+interface ClientProfileProps {
     profile: {
         name: string;
         email: string;
         phone: string;
-        studentId: string;
+        clientId: string;
         department: string;
         enrollmentDate: string;
         avatarUrl?: string; // Added field
@@ -14,7 +14,7 @@ interface StudentProfileProps {
     onSave: (profile: any) => void;
 }
 
-export function StudentProfile({ profile: initialProfile, onSave }: StudentProfileProps) {
+export function ClientProfile({ profile: initialProfile, onSave }: ClientProfileProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [profile, setProfile] = useState(initialProfile);
     
@@ -125,11 +125,11 @@ export function StudentProfile({ profile: initialProfile, onSave }: StudentProfi
                             />
                             </div>
 
-
+ 
                         </div>
                         <div>
                             <h2 className="text-white mb-1">{profile.name}</h2>
-                            <p className="text-white/80">{/*Student ID: */}{'รหัสประจำตัว: '}{profile.studentId}</p>
+                            <p className="text-white/80">{/*Client ID: */}{'รหัสประจำตัว: '}{profile.clientId}</p>
                             <p className="text-white/80">{profile.department}</p>
                         </div>
                     </div>
@@ -188,11 +188,11 @@ export function StudentProfile({ profile: initialProfile, onSave }: StudentProfi
 
                         <div>
                             <label className="block text-sm mb-2 text-[var(--color-text-secondary)]">
-                                {/*Student ID*/}{'รหัสประจำตัว'}
+                                {/*Client ID*/}{'รหัสประจำตัว'}
                             </label>
                             <input
                                 type="text"
-                                value={profile.studentId}
+                                value={profile.clientId}
                                 disabled
                                 className="w-full px-4 py-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-primary-blue)] cursor-not-allowed"
                             />

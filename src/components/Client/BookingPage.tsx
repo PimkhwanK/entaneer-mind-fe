@@ -27,8 +27,8 @@ export function BookingPage({
     const [selectedCounselor, setSelectedCounselor] = useState('พี่ป๊อป (ห้อง 1)');
     const [showDescriptionModal, setShowDescriptionModal] = useState(false);
 
-    const [studentInfo, setStudentInfo] = useState({
-        studentId: '',
+    const [clientInfo, setClientInfo] = useState({
+        clientId: '',
         faculty: '',
         phone: '',
         description: ''
@@ -61,17 +61,17 @@ export function BookingPage({
         slot.counselor === selectedCounselor
     );
 
-    const handleStudentIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleClientIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value.replace(/\D/g, '');
         if (value.length <= 9) {
-            setStudentInfo({ ...studentInfo, studentId: value });
+            setClientInfo({ ...clientInfo, clientId: value });
         }
     };
 
     const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value.replace(/\D/g, '');
         if (value.length <= 10) {
-            setStudentInfo({ ...studentInfo, phone: value });
+            setClientInfo({ ...clientInfo, phone: value });
         }
     };
 
@@ -87,7 +87,7 @@ export function BookingPage({
 
         const event = {
             summary: `นัดหมายปรึกษา: ${counselorName} (Entaneer Mind)`,
-            description: `รหัสประจำตัว: ${info.studentId}\nเบอร์โทร: ${info.phone}\nเรื่องที่ปรึกษา: ${info.description}`,
+            description: `รหัสประจำตัว: ${info.clientId}\nเบอร์โทร: ${info.phone}\nเรื่องที่ปรึกษา: ${info.description}`,
             start: { dateTime: startDateTime.toISOString(), timeZone: 'Asia/Bangkok' },
             end: { dateTime: endDateTime.toISOString(), timeZone: 'Asia/Bangkok' },
             attendees: [
@@ -125,11 +125,11 @@ export function BookingPage({
     });
 
     const handleBooking = async () => {
-        if (studentInfo.studentId.length !== 9) {
+        if (clientInfo.clientId.length !== 9) {
             alert('รหัสประจำตัวต้องมี 9 หลัก');
             return;
         }
-        if (studentInfo.phone.length !== 10) {
+        if (clientInfo.phone.length !== 10) {
             alert('เบอร์โทรศัพท์ต้องมี 10 หลัก');
             return;
         }
@@ -143,21 +143,21 @@ export function BookingPage({
 
             if (syncWithGoogle && googleToken) {
                 try {
-                    googleEventId = await createGoogleEvent(selectedDate, selectedSlot.time, studentInfo, selectedCounselor);
+                    googleEventId = await createGoogleEvent(selectedDate, selectedSlot.time, clientInfo, selectedCounselor);
                 } catch (error) {
                     console.error("Google Sync Error:", error);
                 }
             }
 
             onBook(dateStr, selectedSlot.time, {
-                ...studentInfo,
+                ...clientInfo,
                 googleEventId,
                 googleToken: syncWithGoogle ? googleToken : null,
                 counselorName: selectedCounselor
             });
 
             setShowDescriptionModal(false);
-            setStudentInfo({ studentId: '', faculty: '', phone: '', description: '' });
+            setClientInfo({ clientId: '', faculty: '', phone: '', description: '' });
         }
     };
 
@@ -313,8 +313,8 @@ export function BookingPage({
                                         type="text"
                                         className="w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-green-500 outline-none"
                                         placeholder="650610xxx"
-                                        value={studentInfo.studentId}
-                                        onChange={handleStudentIdChange}
+                                        value={clientInfo.clientId}
+                                        onChange={handleClientIdChange}
                                     />
                                 </div>
                             </div>
@@ -327,7 +327,7 @@ export function BookingPage({
                                         type="tel"
                                         className="w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-green-500 outline-none"
                                         placeholder="08xxxxxxxx"
-                                        value={studentInfo.phone}
+                                        value={clientInfo.phone}
                                         onChange={handlePhoneChange}
                                     />
                                 </div>
@@ -335,7 +335,7 @@ export function BookingPage({
 
                             <div>
                                 <label className="block text-xs font-black text-gray-400 mb-2 uppercase tracking-tighter">เรื่องที่ต้องการปรึกษา</label>
-                                <textarea className="w-full p-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-green-500 outline-none min-h-[100px] resize-none" placeholder="เรื่องที่ต้องการปรึกษาครั้งถัดไป..." value={studentInfo.description} onChange={(e) => setStudentInfo({ ...studentInfo, description: e.target.value })} />
+                                <textarea className="w-full p-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-green-500 outline-none min-h-[100px] resize-none" placeholder="เรื่องที่ต้องการปรึกษาครั้งถัดไป..." value={clientInfo.description} onChange={(e) => setClientInfo({ ...clientInfo, description: e.target.value })} />
                             </div>
 
                             <button onClick={() => !syncWithGoogle && loginToGoogle()} className={`w-full p-5 rounded-2xl border-2 flex items-center justify-between transition-all ${syncWithGoogle ? 'bg-green-600 border-green-600 text-white' : 'border-gray-100 bg-white hover:border-gray-200'}`}>
