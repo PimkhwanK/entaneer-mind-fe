@@ -1,7 +1,7 @@
-export type UserRole = 'student' | 'counselor' | 'admin' | null;
+export type UserRole = 'client' | 'counselor' | 'admin' | null;
 
 // --- สำหรับ Counselor Dashboard (UI ที่เราเพิ่งแก้ไป) ---
-export interface WaitingStudent {
+export interface WaitingClient {
     id: string;
     name: string;
     waitingSince: string;
@@ -11,7 +11,7 @@ export interface WaitingStudent {
 export interface TodayAppointment {
     id: string;
     time: string;
-    studentName: string;
+    clientName: string;
     status: 'pending' | 'in-progress' | 'completed';
     caseCode: string;
 }
@@ -21,7 +21,7 @@ export interface TimeBlock {
     time: string;
     available: boolean;
     bookedBy?: string;
-    studentName?: string;
+    clientName?: string;
 }
 
 export interface UserData {
@@ -32,8 +32,8 @@ export interface UserData {
     roleName: string;
     phoneNum?: string;
     gender?: string;
-    studentProfile?: {
-        studentId: string;
+    clientProfile?: {
+        clientId: string;
         major?: string;
         department?: string;
         cases?: any[];
@@ -53,8 +53,8 @@ export interface Appointment {
 export interface CaseNote {
     id: string;
     caseCode: string;
-    studentId: string;
-    studentName: string;
+    clientId: string;
+    clientName: string;
     department: string;
     sessionDate: string;
     sessionTime: string;

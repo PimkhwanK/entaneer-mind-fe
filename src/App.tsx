@@ -8,12 +8,12 @@ import { AlertCircle, Calendar, Clock, User, Sparkles, Timer, ArrowRight, Info }
 import { apiService } from './services/api.service';
 
 import { API_ENDPOINTS, getAuthHeader } from './config/api.config';
-import type { UserRole, Appointment, WaitingStudent, TodayAppointment, TimeBlock } from './types';
+import type { UserRole, Appointment, WaitingClient, TodayAppointment, TimeBlock } from './types';
 
 // Components
-import { BookingPage } from './components/student/BookingPage';
-import { StudentHistory } from './components/student/StudentHistory';
-import { StudentProfile } from './components/student/StudentProfile';
+import { BookingPage } from './components/Client/BookingPage';
+import { ClientHistory } from './components/Client/ClientHistory';
+import { ClientProfile } from './components/Client/ClientProfile';
 import { CounselorDashboard } from './components/counselor/CounselorDashboard';
 import { CaseNotePage } from './components/counselor/CaseNotePage';
 import { ManageSchedule } from './components/counselor/ManageSchedule';
@@ -21,8 +21,8 @@ import { AdminHome } from './components/admin/AdminHome';
 import { UserManagement } from './components/admin/UserManagement';
 import { UrgencyModal } from './components/ClientUrgencyPage'; 
 
-// --- Interface & Component: StudentHome ---
-interface StudentHomeProps {
+// --- Interface & Component: ClientHome ---
+interface ClientHomeProps {
   onBookSession: () => void;
   onViewHistory: () => void;
   appointments: Appointment[];
@@ -40,14 +40,14 @@ const dailyQuotes = [
   "คุณเข้มแข็งกว่าที่คุณคิด และกล้าหาญกว่าที่คุณเชื่อ",
 ];
 
-export function StudentHome({
+export function ClientHome({
   onBookSession,
   onViewHistory,
   appointments: initialAppointments,
   isWaitingForQueue = false,
   onDebugSkipWaiting,
   hasExistingBooking
-}: StudentHomeProps) {
+}: ClientHomeProps) {
   const appointments: Appointment[] = initialAppointments?.length > 0 ? initialAppointments : [
     { id: '1', date: '15 ม.ค. 2569', time: '10:00', counselor: 'พี่ป๊อป (ห้อง 1)', status: 'upcoming' },
     { id: '2', date: '12 ม.ค. 2569', time: '14:30', counselor: 'พี่ป๊อป (ห้อง 1)', status: 'completed' },
@@ -200,7 +200,7 @@ export default function App() {
   const [showToken, setShowToken] = useState(false);
   const [debugForceShowHome, setDebugForceShowHome] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [waitingStudents, setWaitingStudents] = useState<WaitingStudent[]>([]);
+  const [waitingClients, setWaitingClients] = useState<WaitingClient[]>([]);
   const [todayAppointments, setTodayAppointments] = useState<TodayAppointment[]>([]);
   const [adminStats, setAdminStats] = useState<any>(null);
   const [allUsers, setAllUsers] = useState<any[]>([]);
@@ -214,7 +214,7 @@ export default function App() {
 
   const createHeaders = (additional: Record<string, string> = {}) => ({ ...additional, ...(getAuthHeader() as Record<string, string>) } as HeadersInit);
 
-  const fetchStudentData = async () => {
+  const fetchClientData = async () => {
     try {
       const res = await fetch(API_ENDPOINTS.APPOINTMENTS.MY, { headers: createHeaders() });
       if (res.ok) setAppointments(await res.json());
@@ -228,7 +228,7 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         setTodayAppointments(data.appointments || []);
-        setWaitingStudents(data.waiting || []);
+        setWaitingClients(data.waiting || []);
       }
     } catch (e) { console.error(e); }
   };
@@ -244,9 +244,8 @@ export default function App() {
 
   const loadInitialData = useCallback((role: string) => {
     const r = role.toLowerCase();
-    if (r === 'student') { setCurrentPage('student-home'); fetchStudentData(); }
+    if (r === 'client') { setCurrentPage('client-home'); fetchClientData(); }
     else if (r === 'counselor') { setCurrentPage('counselor-dashboard'); fetchCounselorData(); }
-    else if (r === 'admin') { setCurrentPage('admin-home'); fetchAdminData(); }
   }, []);
 
   const checkAuth = useCallback(async () => {
@@ -312,32 +311,32 @@ export default function App() {
 
   const renderContent = () => {
     if (!userRole || !userData || showUrgency || showPDPA || showToken) return null;
-    if (userRole === 'student') {
-      const studentProfile = userData?.studentProfile || {};
-      const cases = studentProfile.cases || [];
+    if (userRole === 'client') {
+      const clientProfile = userData?.clientProfile || {};
+      const cases = clientProfile.cases || [];
       const hasCase = cases.length > 0;
       const shouldShowWaiting = !hasCase && !debugForceShowHome;
       switch (currentPage) {
-        case 'student-home': return (
-          <StudentHome
+        case 'client-home': return (
+          <ClientHome
             appointments={appointments}
-            onBookSession={() => setCurrentPage('student-booking')}
-            onViewHistory={() => setCurrentPage('student-history')}
+            onBookSession={() => setCurrentPage('client-booking')}
+            onViewHistory={() => setCurrentPage('client-history')}
             isWaitingForQueue={shouldShowWaiting}
             onDebugSkipWaiting={() => setDebugForceShowHome(true)}
             hasExistingBooking={hasUpcomingBooking}
           />
         );
-        case 'student-booking': return (
+        case 'client-booking': return (
           <BookingPage
-            onBook={() => { fetchStudentData(); setCurrentPage('student-history'); }}
-            onNavigateToHistory={() => setCurrentPage('student-history')}
+            onBook={() => { fetchClientData(); setCurrentPage('client-history'); }}
+            onNavigateToHistory={() => setCurrentPage('client-history')}
             hasExistingBooking={hasUpcomingBooking}
           />
         );
-        case 'student-history': return <StudentHistory appointments={appointments} />;
-        case 'student-profile': return <StudentProfile profile={{ name: `${userData.firstName} ${userData.lastName}`, email: userData.cmuAccount || '', studentId: userData.studentProfile?.studentId || '', department: userData.studentProfile?.department || '', phone: userData.phoneNum || '-', enrollmentDate: userData.createdAt ? new Date(userData.createdAt).toLocaleDateString() : '-' }} onSave={() => { }} />;
-        default: return <StudentHome appointments={appointments} onBookSession={() => setCurrentPage('student-booking')} onViewHistory={() => setCurrentPage('student-history')} hasExistingBooking={hasUpcomingBooking} />;
+        case 'client-history': return <ClientHistory appointments={appointments} />;
+        case 'client-profile': return <ClientProfile profile={{ name: `${userData.firstName} ${userData.lastName}`, email: userData.cmuAccount || '', clientId: userData.clientProfile?.clientId || '', department: userData.ClientProfile?.department || '', phone: userData.phoneNum || '-', enrollmentDate: userData.createdAt ? new Date(userData.createdAt).toLocaleDateString() : '-' }} onSave={() => { }} />;
+        default: return <ClientHome appointments={appointments} onBookSession={() => setCurrentPage('client-booking')} onViewHistory={() => setCurrentPage('client-history')} hasExistingBooking={hasUpcomingBooking} />;
       }
     }
     if (userRole === 'counselor') {
@@ -351,12 +350,12 @@ export default function App() {
         case 'counselor-dashboard':
           return (
             <CounselorDashboard
-              waitingStudents={waitingStudents.length > 0 ? waitingStudents : undefined}
+              waitingClients={waitingClients.length > 0 ? waitingClients : undefined}
               todayAppointments={todayAppointments.length > 0 ? todayAppointments : undefined}
               totalCasesCount={128}
               onGenerateToken={mockGenerateToken}
               onScheduleAppointment={(id) => {
-                console.log('Scheduling for student:', id);
+                console.log('Scheduling for client:', id);
                 setCurrentPage('counselor-schedule');
               }}
             />
@@ -366,7 +365,7 @@ export default function App() {
         default:
           return (
             <CounselorDashboard
-              waitingStudents={waitingStudents.length > 0 ? waitingStudents : undefined}
+              waitingClients={waitingClients.length > 0 ? waitingClients : undefined}
               todayAppointments={todayAppointments.length > 0 ? todayAppointments : undefined}
               totalCasesCount={128}
               onGenerateToken={mockGenerateToken}
@@ -376,7 +375,7 @@ export default function App() {
       }
     }
     if (userRole === 'admin') {
-      const stats = adminStats || { totalUsers: 0, activeStudents: 0, activeCounselors: 0, pendingApprovals: 0, totalSessions: 0, sessionsThisMonth: 0, upcomingSessions: 0, averageWaitTime: '0', topIssueTags: [] };
+      const stats = adminStats || { totalUsers: 0, activeClients: 0, activeCounselors: 0, pendingApprovals: 0, totalSessions: 0, sessionsThisMonth: 0, upcomingSessions: 0, averageWaitTime: '0', topIssueTags: [] };
       switch (currentPage) {
         case 'admin-home': return <AdminHome stats={stats} onNavigateToApprovals={() => setCurrentPage('admin-users')} />;
         case 'admin-users': return <UserManagement users={allUsers} onApprove={fetchAdminData} onSuspend={fetchAdminData} />;

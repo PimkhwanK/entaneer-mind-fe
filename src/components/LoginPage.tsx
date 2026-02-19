@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import { Heart, User, Lock, ArrowLeft} from 'lucide-react';
 
 interface LoginPageProps {
-    onLogin: (email: string, password: string, role: 'student' | 'counselor' | 'admin') => void;
+    onLogin: (email: string, password: string, role: 'client' | 'counselor' | 'admin') => void;
     onBack: () => void;
 }
 
 export function LoginPage({ onLogin, onBack }: LoginPageProps) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [role, setRole] = useState<'student' | 'counselor' | 'admin'>('student');
+    const [role, setRole] = useState<'client' | 'counselor'>('client');
 
     const handleSubmit = (e: React.FormEvent) => {
         try{
@@ -52,7 +52,7 @@ export function LoginPage({ onLogin, onBack }: LoginPageProps) {
                                 {/*I am a...*/}{'ฉันคือ...'}
                             </label>
                             <div className="grid grid-cols-3 gap-2">
-                                {(['student', 'counselor', 'admin'] as const).map((r) => (
+                                {(['client', 'counselor'] as const).map((r) => (
                                     <button
                                         key={r}
                                         type="button"

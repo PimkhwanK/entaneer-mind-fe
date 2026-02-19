@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Calendar, Clock, User, Users, Key, Copy, CheckCircle, AlertCircle } from 'lucide-react';
 
-export interface WaitingStudent {
+export interface WaitingClient {
     id: string;
     name: string;
     waitingSince: string;
@@ -11,21 +11,21 @@ export interface WaitingStudent {
 export interface TodayAppointment {
     id: string;
     time: string;
-    studentName: string;
+    clientName: string;
     status: 'pending' | 'in-progress' | 'completed';
     caseCode: string;
 }
 
 interface CounselorDashboardProps {
-    waitingStudents?: WaitingStudent[];
+    waitingClients?: WaitingClient[];
     todayAppointments?: TodayAppointment[];
     totalCasesCount?: number;
     onGenerateToken: () => string;
-    onScheduleAppointment?: (studentId: string) => void;
+    onScheduleAppointment?: (clientId: string) => void;
 }
 
 export function CounselorDashboard({
-    waitingStudents: initialWaitingStudents,
+    waitingClients: initialWaitingClients,
     todayAppointments: initialTodayAppointments,
     totalCasesCount: initialTotalCount,
     onGenerateToken,
@@ -35,20 +35,20 @@ export function CounselorDashboard({
     const [copiedToken, setCopiedToken] = useState(false);
 
     // Mockup Data
-    const mockWaitingStudents: WaitingStudent[] = [
+    const mockWaitingClients: WaitingClient[] = [
         { id: 'w1', name: 'นายสมชาย รักเรียน', waitingSince: '10:15 น.', urgency: 'high' },
         { id: 'w2', name: 'นางสาวใจดี มีสุข', waitingSince: '10:45 น.', urgency: 'medium' },
         { id: 'w3', name: 'นายขยัน หมั่นเพียร', waitingSince: '11:20 น.', urgency: 'low' },
     ];
 
     const mockTodayAppointments: TodayAppointment[] = [
-        { id: 'a1', time: '13:00', studentName: 'นายมงคล สายลุย', status: 'in-progress', caseCode: 'CASE-2024-001' },
-        { id: 'a2', time: '14:30', studentName: 'นางสาววิภาดา แก้วใส', status: 'pending', caseCode: 'CASE-2024-005' },
-        { id: 'a3', time: '10:00', studentName: 'นายธันวา มาดี', status: 'completed', caseCode: 'CASE-2023-089' },
+        { id: 'a1', time: '13:00', clientName: 'นายมงคล สายลุย', status: 'in-progress', caseCode: 'CASE-2024-001' },
+        { id: 'a2', time: '14:30', clientName: 'นางสาววิภาดา แก้วใส', status: 'pending', caseCode: 'CASE-2024-005' },
+        { id: 'a3', time: '10:00', clientName: 'นายธันวา มาดี', status: 'completed', caseCode: 'CASE-2023-089' },
     ];
 
     // เลือกใช้ข้อมูลจาก Props หรือ Mockup
-    const waitingStudents = initialWaitingStudents || mockWaitingStudents;
+    const waitingClients = initialWaitingClients || mockWaitingClients;
     const todayAppointments = initialTodayAppointments || mockTodayAppointments;
     const totalCasesCount = initialTotalCount !== undefined ? initialTotalCount : 128;
 
@@ -127,7 +127,7 @@ export function CounselorDashboard({
                         </div>
                         <h4 className="font-medium">รอการจัดคิว</h4>
                     </div>
-                    <p className="text-3xl font-bold text-[var(--color-text-primary)] ml-13">{waitingStudents.length}</p>
+                    <p className="text-3xl font-bold text-[var(--color-text-primary)] ml-13">{waitingClients.length}</p>
                 </div>
 
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
@@ -192,7 +192,7 @@ export function CounselorDashboard({
                                     <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm"><User className="w-6 h-6 text-gray-400" /></div>
                                     <div className="flex-1">
                                         <div className="flex items-center gap-2">
-                                            <h4 className="font-bold text-[var(--color-text-primary)]">{apt.studentName}</h4>
+                                            <h4 className="font-bold text-[var(--color-text-primary)]">{apt.clientName}</h4>
                                             <span className="text-[10px] px-2 py-0.5 bg-gray-200 rounded text-gray-600 font-mono">{apt.caseCode}</span>
                                         </div>
                                         <div className="flex items-center gap-2 mt-1">
@@ -210,7 +210,7 @@ export function CounselorDashboard({
 
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
                 <div className="flex items-center gap-2 mb-4"><AlertCircle className="w-5 h-5 text-[var(--color-accent-green)]" /><h3 className="font-bold">นักศึกษาที่รอการจัดคิว</h3></div>
-                {waitingStudents.length === 0 ? (
+                {waitingClients.length === 0 ? (
                     <div className="text-center py-12 text-gray-400"><Users className="w-12 h-12 mx-auto mb-3 opacity-20" /><p>ไม่มีนักศึกษารอคิวในขณะนี้</p></div>
                 ) : (
                     <div className="overflow-x-auto">
@@ -224,12 +224,12 @@ export function CounselorDashboard({
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50 text-sm">
-                                {waitingStudents.map((student) => (
-                                    <tr key={student.id} className="hover:bg-gray-50/50 transition-colors">
-                                        <td className="px-4 py-4"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center border border-green-100"><User className="w-4 h-4 text-green-600" /></div><span className="font-medium">{student.name}</span></div></td>
-                                        <td className="px-4 py-4 text-[var(--color-text-secondary)]">{student.waitingSince}</td>
-                                        <td className="px-4 py-4"><span className={`px-3 py-1 rounded-full text-[11px] font-bold border ${getUrgencyColor(student.urgency)}`}>{getUrgencyLabel(student.urgency)}</span></td>
-                                        <td className="px-4 py-4"><button onClick={() => onScheduleAppointment?.(student.id)} className="text-[var(--color-accent-blue)] font-bold hover:underline">ลงตารางนัดหมาย</button></td>
+                                {waitingClients.map((client) => (
+                                    <tr key={client.id} className="hover:bg-gray-50/50 transition-colors">
+                                        <td className="px-4 py-4"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center border border-green-100"><User className="w-4 h-4 text-green-600" /></div><span className="font-medium">{client.name}</span></div></td>
+                                        <td className="px-4 py-4 text-[var(--color-text-secondary)]">{client.waitingSince}</td>
+                                        <td className="px-4 py-4"><span className={`px-3 py-1 rounded-full text-[11px] font-bold border ${getUrgencyColor(client.urgency)}`}>{getUrgencyLabel(client.urgency)}</span></td>
+                                        <td className="px-4 py-4"><button onClick={() => onScheduleAppointment?.(client.id)} className="text-[var(--color-accent-blue)] font-bold hover:underline">ลงตารางนัดหมาย</button></td>
                                     </tr>
                                 ))}
                             </tbody>
