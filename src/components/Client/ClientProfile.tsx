@@ -125,7 +125,7 @@ export function ClientProfile({ profile: initialProfile, onSave }: ClientProfile
                             />
                             </div>
 
-
+ 
                         </div>
                         <div>
                             <h2 className="text-white mb-1">{profile.name}</h2>

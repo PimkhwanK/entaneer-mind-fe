@@ -6,7 +6,7 @@ interface Appointment {
     date: string;
     time: string;
     counselor: string;
-    status: 'upcoming' | 'completed' | 'cancelled';
+    status: 'upcoming' | 'completed' | 'cancelled'; 
     notes?: string;
 }
 

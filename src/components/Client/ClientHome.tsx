@@ -7,7 +7,7 @@ interface Appointment {
     time: string;
     counselor: string;
     status: 'upcoming' | 'completed' | 'cancelled';
-}
+} 
 
 interface ClientHomeProps {
     onBookSession: () => void;
