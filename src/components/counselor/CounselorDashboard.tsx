@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Clock, User, Users, Key, Copy, CheckCircle, AlertCircle } from 'lucide-react';
-
+import { Calendar, Clock, User, Users, Key, Copy, CheckCircle, AlertCircle, BarChart3, Activity, TrendingUp, ArrowUpRight, FileText } from 'lucide-react';
 export interface WaitingStudent {
     id: string;
     name: string;
@@ -31,14 +30,41 @@ interface CounselorDashboardProps {
     totalCasesCount?: number;
     onScheduleAppointment?: (studentId: string) => void;
     onNavigateToReport?: () => void;  // เพิ่มบรรทัดนี้
+    systemStats?: SystemStats;
 }
+
+export interface SystemStats {
+    activeClients: number;
+    activeCounselors: number;
+    sessionsThisMonth: number;
+    averageWaitTime: string;
+    topIssueTags: { tag: string; count: number }[];
+    totalSessions: number;
+}
+
+const MOCK_SYSTEM_STATS: SystemStats = {
+    activeClients: 1180,
+    activeCounselors: 15,
+    sessionsThisMonth: 42,
+    averageWaitTime: '1.5d',
+    topIssueTags: [
+        { tag: 'Academic Stress', count: 120 },
+        { tag: 'Anxiety', count: 85 },
+        { tag: 'Relationship Issues', count: 64 },
+        { tag: 'Depression', count: 42 },
+        { tag: 'Financial Issues', count: 30 },
+    ],
+    totalSessions: 450,
+};
 
 export function CounselorDashboard({
     waitingStudents: initialWaitingStudents,
     todayAppointments: initialTodayAppointments,
     allToken: initialUnusedToken,
     totalCasesCount: initialTotalCount,
-    onScheduleAppointment
+    systemStats = MOCK_SYSTEM_STATS,
+    onScheduleAppointment,
+    onNavigateToReport,
 }: CounselorDashboardProps) {
     const [generatedToken, setGeneratedToken] = useState<string>("");
     const [copiedToken, setCopiedToken] = useState(false);
@@ -301,8 +327,8 @@ export function CounselorDashboard({
                                 <button
                                     onClick={() => setFilter('all')}
                                     className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === 'all'
-                                            ? 'bg-blue-100 text-blue-700'
-                                            : 'text-gray-600 hover:bg-gray-100'
+                                        ? 'bg-blue-100 text-blue-700'
+                                        : 'text-gray-600 hover:bg-gray-100'
                                         }`}
                                 >
                                     ทั้งหมด
@@ -310,8 +336,8 @@ export function CounselorDashboard({
                                 <button
                                     onClick={() => setFilter('unused')}
                                     className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === 'unused'
-                                            ? 'bg-blue-100 text-blue-700'
-                                            : 'text-gray-600 hover:bg-gray-100'
+                                        ? 'bg-blue-100 text-blue-700'
+                                        : 'text-gray-600 hover:bg-gray-100'
                                         }`}
                                 >
                                     ยังไม่ถูกใช้งาน
@@ -319,8 +345,8 @@ export function CounselorDashboard({
                                 <button
                                     onClick={() => setFilter('used')}
                                     className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === 'used'
-                                            ? 'bg-blue-100 text-blue-700'
-                                            : 'text-gray-600 hover:bg-gray-100'
+                                        ? 'bg-blue-100 text-blue-700'
+                                        : 'text-gray-600 hover:bg-gray-100'
                                         }`}
                                 >
                                     ถูกใช้งานแล้ว
@@ -340,8 +366,8 @@ export function CounselorDashboard({
                                     <div
                                         key={token.id}
                                         className={`p-4 rounded-xl border-2 transition-all ${token.isUsed
-                                                ? 'bg-green-50 border-green-200'
-                                                : 'bg-white border-gray-200 hover:border-gray-300'
+                                            ? 'bg-green-50 border-green-200'
+                                            : 'bg-white border-gray-200 hover:border-gray-300'
                                             }`}
                                     >
                                         <div className="flex items-start justify-between">
@@ -433,6 +459,138 @@ export function CounselorDashboard({
                     )}
                 </div>
             </div>
+
+            {/* ════════════════════════════════════════
+                ส่วนล่าง: สถิติภาพรวมระบบ (System Stats)
+                โยกมาจาก Admin Dashboard
+            ════════════════════════════════════════ */}
+            <div className="border-t-2 border-dashed border-gray-200 pt-10 mb-8">
+                <div className="flex items-center gap-3 mb-2">
+                    <TrendingUp className="w-6 h-6 text-[var(--color-accent-blue)]" />
+                    <h2 className="text-xl font-bold text-[var(--color-text-primary)]">สถิติภาพรวมระบบ</h2>
+                </div>
+                <p className="text-sm text-[var(--color-text-secondary)] mb-8">ข้อมูลสะสมของระบบ Entaneer Mind ทั้งหมด</p>
+
+                {/* System Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center">
+                                <Users className="w-6 h-6 text-blue-600" />
+                            </div>
+                        </div>
+                        <p className="text-sm text-gray-500 mb-1 font-medium">นักศึกษาในระบบ</p>
+                        <h2 className="text-3xl font-bold text-gray-800">{systemStats.activeClients}</h2>
+                        <p className="text-xs text-blue-600 mt-2">ผู้ใช้งานทั้งหมดที่ลงทะเบียน</p>
+                    </div>
+
+                    <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center">
+                                <User className="w-6 h-6 text-purple-600" />
+                            </div>
+                        </div>
+                        <p className="text-sm text-gray-500 mb-1 font-medium">ผู้ให้คำปรึกษา (Active)</p>
+                        <h2 className="text-3xl font-bold text-gray-800">{systemStats.activeCounselors}</h2>
+                        <p className="text-xs text-purple-600 mt-2">พร้อมให้บริการในระบบ</p>
+                    </div>
+
+                    <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center">
+                                <Calendar className="w-6 h-6 text-green-600" />
+                            </div>
+                        </div>
+                        <p className="text-sm text-gray-500 mb-1 font-medium">นัดหมายเดือนนี้</p>
+                        <h2 className="text-3xl font-bold text-gray-800">{systemStats.sessionsThisMonth}</h2>
+                        <p className="text-xs text-green-600 mt-2">เสร็จสิ้นแล้ว {systemStats.totalSessions} เคสรวม</p>
+                    </div>
+                </div>
+
+                {/* Problem Tags + Average Wait Time + Report */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Problem Tags Bar Chart */}
+                    <div className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-50">
+                        <div className="flex items-center gap-3 mb-6">
+                            <BarChart3 className="w-6 h-6 text-green-500" />
+                            <h3 className="text-lg font-bold text-gray-800">ปัญหาที่พบบ่อย (Problem Tags)</h3>
+                        </div>
+                        <div className="space-y-5">
+                            {systemStats.topIssueTags.map((issue, idx) => (
+                                <div key={idx}>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-sm font-semibold text-gray-600">{issue.tag}</span>
+                                        <span className="text-sm font-bold text-gray-800">{issue.count} เคส</span>
+                                    </div>
+                                    <div className="w-full bg-gray-100 rounded-full h-2.5">
+                                        <div
+                                            className="bg-green-400 h-2.5 rounded-full transition-all duration-1000"
+                                            style={{
+                                                width: `${systemStats.totalSessions > 0
+                                                    ? (issue.count / systemStats.totalSessions) * 100
+                                                    : 0}%`
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Right Column: Average Wait Time + Generate Report */}
+                    <div className="space-y-6">
+                        <div className="bg-gradient-to-br from-green-500 to-blue-600 rounded-[2.5rem] p-8 text-white shadow-lg">
+                            <h3 className="text-white/80 font-medium mb-4 flex items-center gap-2 text-sm">
+                                <Clock className="w-4 h-4" /> Average Wait Time
+                            </h3>
+                            <p className="text-5xl font-bold mb-2">{systemStats.averageWaitTime}</p>
+                            <p className="text-white/70 text-sm">ระยะเวลารอคิวโดยเฉลี่ยในเดือนนี้</p>
+                        </div>
+
+                        <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100">
+                            <h3 className="text-lg font-bold text-gray-800 mb-2">รายงานระบบ</h3>
+                            <p className="text-sm text-gray-500 mb-4">สร้างรายงานสรุปสถิติในช่วงเวลาที่ต้องการ</p>
+                            <button
+                                onClick={onNavigateToReport}
+                                className="w-full flex items-center justify-between px-5 py-4 bg-gray-50 text-gray-700 rounded-2xl hover:bg-green-500 hover:text-white transition-all font-bold group"
+                            >
+                                <span className="flex items-center gap-2">
+                                    <FileText className="w-4 h-4" />
+                                    Generate Full Report
+                                </span>
+                                <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Activity Summary */}
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
+                <div className="flex items-center gap-2 mb-4">
+                    <Activity className="w-5 h-5 text-[var(--color-accent-blue)]" />
+                    <h3 className="font-bold text-gray-800">สรุปกิจกรรมระบบ</h3>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center p-4 bg-gray-50 rounded-2xl">
+                        <p className="text-2xl font-bold text-gray-800">{systemStats.totalSessions}</p>
+                        <p className="text-xs text-gray-500 mt-1">เซสชันทั้งหมด</p>
+                    </div>
+                    <div className="text-center p-4 bg-blue-50 rounded-2xl">
+                        <p className="text-2xl font-bold text-blue-600">{systemStats.sessionsThisMonth}</p>
+                        <p className="text-xs text-gray-500 mt-1">เดือนนี้</p>
+                    </div>
+                    <div className="text-center p-4 bg-green-50 rounded-2xl">
+                        <p className="text-2xl font-bold text-green-600">{systemStats.activeClients}</p>
+                        <p className="text-xs text-gray-500 mt-1">ผู้ใช้ระบบ</p>
+                    </div>
+                    <div className="text-center p-4 bg-purple-50 rounded-2xl">
+                        <p className="text-2xl font-bold text-purple-600">{systemStats.topIssueTags.length}</p>
+                        <p className="text-xs text-gray-500 mt-1">ประเภทปัญหา</p>
+                    </div>
+                </div>
+            </div>
+
         </div>
     );
 }
