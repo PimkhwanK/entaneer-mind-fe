@@ -17,11 +17,11 @@ export interface TodayAppointment {
 }
 
 export interface allToken {
-  id: number;
-  token: string;
-  isUsed: boolean;
-  usedAt?: Date;
-  createdAt: Date;
+    id: number;
+    token: string;
+    isUsed: boolean;
+    usedAt?: Date;
+    createdAt: Date;
 }
 
 interface CounselorDashboardProps {
@@ -30,6 +30,7 @@ interface CounselorDashboardProps {
     allToken?: allToken[];
     totalCasesCount?: number;
     onScheduleAppointment?: (studentId: string) => void;
+    onNavigateToReport?: () => void;  // เพิ่มบรรทัดนี้
 }
 
 export function CounselorDashboard({
@@ -41,10 +42,10 @@ export function CounselorDashboard({
 }: CounselorDashboardProps) {
     const [generatedToken, setGeneratedToken] = useState<string>("");
     const [copiedToken, setCopiedToken] = useState(false);
-    
+
     //สร้าง local token ก่อนส่ง Api
-    const [token,setToken] = useState<string>("");
-    const [error,setError] = useState<string | null>(null);
+    const [token, setToken] = useState<string>("");
+    const [error, setError] = useState<string | null>(null);
 
     // Mockup Data
     const mockWaitingStudents: WaitingStudent[] = [
@@ -59,8 +60,8 @@ export function CounselorDashboard({
         { id: 'a3', time: '10:00', studentName: 'นายธันวา มาดี', status: 'completed', caseCode: 'CASE-2023-089' },
     ];
 
-    const mockallToken: allToken[]= [
-        { id: 1, token: "690001", isUsed: false, usedAt: undefined, createdAt: new Date()},
+    const mockallToken: allToken[] = [
+        { id: 1, token: "690001", isUsed: false, usedAt: undefined, createdAt: new Date() },
         { id: 2, token: "690002", isUsed: true, usedAt: new Date(), createdAt: new Date() },
         { id: 3, token: "690003", isUsed: false, usedAt: undefined, createdAt: new Date() },
     ];
@@ -108,7 +109,7 @@ export function CounselorDashboard({
 
         setTokens(prev => [...prev, newToken]);
         setError(null);
-        setGeneratedToken(token); 
+        setGeneratedToken(token);
         setCopiedToken(false);
     };
 
@@ -121,13 +122,13 @@ export function CounselorDashboard({
     };
 
     //เช็คแพทเทิร์นของ input ที่ใส่เข้ามาว่า *เป็นปีตามปัจจุบันหรือไม่ *ครบ 6 ตัวไหม(สำหรับรันนัมเบอร์ 4 ตัว)
-    const validateTokenBE = (token:string) => {
+    const validateTokenBE = (token: string) => {
         const regex = /^\d{6}$/;
         if (!regex.test(token)) return false;
 
         const currentYearBE = (new Date().getFullYear() + 543)
-        .toString()
-        .slice(-2);
+            .toString()
+            .slice(-2);
 
         return token.slice(0, 2) === currentYearBE;
     };
@@ -152,15 +153,15 @@ export function CounselorDashboard({
     // sort
     const sortedTokens = [...filteredTokens].sort((a, b) =>
         sortAsc
-        ? a.token.localeCompare(b.token)
-        : b.token.localeCompare(a.token)
+            ? a.token.localeCompare(b.token)
+            : b.token.localeCompare(a.token)
     );
 
     const highestToken = tokens.length > 0
-    ? tokens.reduce((max, current) =>
-        current.token > max.token ? current : max
+        ? tokens.reduce((max, current) =>
+            current.token > max.token ? current : max
         )
-    : null;
+        : null;
 
     const getUrgencyLabel = (urgency: string) => {
         switch (urgency) {
@@ -251,191 +252,187 @@ export function CounselorDashboard({
 
             <div className="max-w-7xl mx-auto">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                        <div className="lg:col-span-1 bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
-                            <div className="flex items-center gap-2 mb-4">
-                                    <Key className="size-5 text-[var(--color-accent-green)]" />
-                                    <h3 className="font-bold">สร้างรหัสลงทะเบียน (Token)</h3>
-                            </div>
-                            <p className="text-sm text-[var(--color-text-secondary)] mb-6">สร้างรหัสเฉพาะสำหรับนักศึกษาใหม่</p>
+                    <div className="lg:col-span-1 bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Key className="size-5 text-[var(--color-accent-green)]" />
+                            <h3 className="font-bold">สร้างรหัสลงทะเบียน (Token)</h3>
+                        </div>
+                        <p className="text-sm text-[var(--color-text-secondary)] mb-6">สร้างรหัสเฉพาะสำหรับนักศึกษาใหม่</p>
 
-                            {/* input section */}
-                            <input
-                                className='w-full bg-gray-50 border border-dashed border-gray-300 rounded-2xl p-4 mb-4'
-                                type="text"
-                                value={token}
-                                onChange={(e) => {
-                                    const value = e.target.value.replace(/\D/g, "");
-                                    setToken(value);
-                                }}
-                                maxLength={6} 
-                                placeholder="เช่น ปปรรรร โดย ป(ปี) และ ร(รันนัมเบอร์)"
-                            />
+                        {/* input section */}
+                        <input
+                            className='w-full bg-gray-50 border border-dashed border-gray-300 rounded-2xl p-4 mb-4'
+                            type="text"
+                            value={token}
+                            onChange={(e) => {
+                                const value = e.target.value.replace(/\D/g, "");
+                                setToken(value);
+                            }}
+                            maxLength={6}
+                            placeholder="เช่น ปปรรรร โดย ป(ปี) และ ร(รันนัมเบอร์)"
+                        />
 
-                            <button onClick={handleGenerateToken} className="w-full bg-[var(--color-accent-green)] text-white py-3 rounded-2xl hover:opacity-90 transition-opacity mb-4 font-medium">
-                                สร้างรหัสลงทะเบียนใหม่
-                            </button>
-                            
-                            {/* แจ้งเตือนหากมีการเขียนค่าผิด */}
-                            {error && <p className="text-red-500 mt-4">{error}</p>}
-                            
-                            {generatedToken && (
-                                <div className="bg-gray-50 border border-dashed border-gray-300 rounded-2xl p-4">
-                                    <div className="flex items-center gap-2">
-                                        <code className="flex-1 bg-white px-3 py-2 rounded-xl text-sm font-mono break-all border border-gray-100">{generatedToken}</code>
-                                        <button onClick={handleCopyToken} className="p-2 hover:bg-white rounded-xl transition-colors shadow-sm">
-                                            {copiedToken ? <CheckCircle className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5 text-[var(--color-accent-blue)]" />}
-                                        </button>
-                                    </div>
+                        <button onClick={handleGenerateToken} className="w-full bg-[var(--color-accent-green)] text-white py-3 rounded-2xl hover:opacity-90 transition-opacity mb-4 font-medium">
+                            สร้างรหัสลงทะเบียนใหม่
+                        </button>
+
+                        {/* แจ้งเตือนหากมีการเขียนค่าผิด */}
+                        {error && <p className="text-red-500 mt-4">{error}</p>}
+
+                        {generatedToken && (
+                            <div className="bg-gray-50 border border-dashed border-gray-300 rounded-2xl p-4">
+                                <div className="flex items-center gap-2">
+                                    <code className="flex-1 bg-white px-3 py-2 rounded-xl text-sm font-mono break-all border border-gray-100">{generatedToken}</code>
+                                    <button onClick={handleCopyToken} className="p-2 hover:bg-white rounded-xl transition-colors shadow-sm">
+                                        {copiedToken ? <CheckCircle className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5 text-[var(--color-accent-blue)]" />}
+                                    </button>
                                 </div>
-                            )}
                             </div>
+                        )}
+                    </div>
 
-                            {/* Token Dashboard */}
-                            <div className="lg:col-span-2">
-                                <div className="bg-white rounded-2xl shadow-sm p-6">
-                                <h2 className="text-xl mb-4">Token Dashboard</h2>
+                    {/* Token Dashboard */}
+                    <div className="lg:col-span-2">
+                        <div className="bg-white rounded-2xl shadow-sm p-6">
+                            <h2 className="text-xl mb-4">Token Dashboard</h2>
 
-                                {/* Filter Tabs */}
-                                <div className="flex items-center gap-4 mb-4">
-                                    <button
+                            {/* Filter Tabs */}
+                            <div className="flex items-center gap-4 mb-4">
+                                <button
                                     onClick={() => setFilter('all')}
-                                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                                        filter === 'all'
-                                        ? 'bg-blue-100 text-blue-700'
-                                        : 'text-gray-600 hover:bg-gray-100'
-                                    }`}
-                                    >
+                                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === 'all'
+                                            ? 'bg-blue-100 text-blue-700'
+                                            : 'text-gray-600 hover:bg-gray-100'
+                                        }`}
+                                >
                                     ทั้งหมด
-                                    </button>
-                                    <button
+                                </button>
+                                <button
                                     onClick={() => setFilter('unused')}
-                                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                                        filter === 'unused'
-                                        ? 'bg-blue-100 text-blue-700'
-                                        : 'text-gray-600 hover:bg-gray-100'
-                                    }`}
-                                    >
+                                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === 'unused'
+                                            ? 'bg-blue-100 text-blue-700'
+                                            : 'text-gray-600 hover:bg-gray-100'
+                                        }`}
+                                >
                                     ยังไม่ถูกใช้งาน
-                                    </button>
-                                    <button
+                                </button>
+                                <button
                                     onClick={() => setFilter('used')}
-                                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                                        filter === 'used'
-                                        ? 'bg-blue-100 text-blue-700'
-                                        : 'text-gray-600 hover:bg-gray-100'
-                                    }`}
-                                    >
+                                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === 'used'
+                                            ? 'bg-blue-100 text-blue-700'
+                                            : 'text-gray-600 hover:bg-gray-100'
+                                        }`}
+                                >
                                     ถูกใช้งานแล้ว
-                                    </button>
+                                </button>
 
-                                    <button
+                                <button
                                     onClick={() => setSortAsc(!sortAsc)}
                                     className="ml-auto text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
-                                    >
+                                >
                                     Sort: {sortAsc ? 'ASC ↑' : 'DESC ↓'}
-                                    </button>
-                                </div>
+                                </button>
+                            </div>
 
-                                {/* Token List - Scrollable */}
-                                <div className="max-h-54 overflow-y-auto space-y-3 pr-2">
-                                    {sortedTokens.map((token) => (
+                            {/* Token List - Scrollable */}
+                            <div className="max-h-54 overflow-y-auto space-y-3 pr-2">
+                                {sortedTokens.map((token) => (
                                     <div
                                         key={token.id}
-                                        className={`p-4 rounded-xl border-2 transition-all ${
-                                        token.isUsed
-                                            ? 'bg-green-50 border-green-200'
-                                            : 'bg-white border-gray-200 hover:border-gray-300'
-                                        }`}
+                                        className={`p-4 rounded-xl border-2 transition-all ${token.isUsed
+                                                ? 'bg-green-50 border-green-200'
+                                                : 'bg-white border-gray-200 hover:border-gray-300'
+                                            }`}
                                     >
                                         <div className="flex items-start justify-between">
-                                        <div>
-                                            <p className="font-semibold text-lg text-gray-800">
-                                            {token.token}
-                                            </p>
-                                            <p className="text-sm text-gray-500">{token.createdAt.toLocaleString()}</p>
-                                        </div>
+                                            <div>
+                                                <p className="font-semibold text-lg text-gray-800">
+                                                    {token.token}
+                                                </p>
+                                                <p className="text-sm text-gray-500">{token.createdAt.toLocaleString()}</p>
+                                            </div>
                                         </div>
                                         {token.isUsed && (
-                                        <p className="mt-2 text-sm text-green-700">
-                                            ถูกใช้งานแล้ว
-                                        </p>
-                                    )}
+                                            <p className="mt-2 text-sm text-green-700">
+                                                ถูกใช้งานแล้ว
+                                            </p>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                            {highestToken && (
+                                <div className="p-4 bg-green-50 rounded-xl mt-2">
+                                    <p className="text-sm text-gray-500">Token สูงสุดที่ถูกสร้างมาแล้ว</p>
+                                    <p className="text-lg font-semibold">{highestToken.token}</p>
                                 </div>
-                            ))}
+                            )}
                         </div>
-                        {highestToken && (
-                            <div className="p-4 bg-green-50 rounded-xl mt-2">
-                                <p className="text-sm text-gray-500">Token สูงสุดที่ถูกสร้างมาแล้ว</p>
-                                <p className="text-lg font-semibold">{highestToken.token}</p>
+                    </div>
+
+
+                    <div className="lg:col-span-3 bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Calendar className="w-5 h-5 text-[var(--color-accent-blue)]" />
+                            <h3 className="font-bold">ตารางนัดหมายวันนี้</h3>
+                        </div>
+                        {todayAppointments.length === 0 ? (
+                            <div className="text-center py-12 text-gray-400">
+                                <Clock className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                                <p>ไม่มีตารางนัดหมายในวันนี้</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {todayAppointments.map((apt) => (
+                                    <div key={apt.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:border-[var(--color-accent-blue)] transition-colors">
+                                        <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm"><User className="w-6 h-6 text-gray-400" /></div>
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <h4 className="font-bold text-[var(--color-text-primary)]">{apt.studentName}</h4>
+                                                <span className="text-[10px] px-2 py-0.5 bg-gray-200 rounded text-gray-600 font-mono">{apt.caseCode}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <Clock className="w-4 h-4 text-[var(--color-text-secondary)]" />
+                                                <span className="text-sm text-[var(--color-text-secondary)]">{apt.time} น.</span>
+                                            </div>
+                                        </div>
+                                        <span className={`px-4 py-1.5 rounded-full text-xs font-medium ${getStatusColor(apt.status)}`}>{getStatusLabel(apt.status)}</span>
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </div>
                 </div>
-            
 
-                <div className="lg:col-span-3 bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
-                    <div className="flex items-center gap-2 mb-4">
-                        <Calendar className="w-5 h-5 text-[var(--color-accent-blue)]" />
-                        <h3 className="font-bold">ตารางนัดหมายวันนี้</h3>
-                    </div>
-                    {todayAppointments.length === 0 ? (
-                        <div className="text-center py-12 text-gray-400">
-                            <Clock className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                            <p>ไม่มีตารางนัดหมายในวันนี้</p>
-                        </div>
+                <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
+                    <div className="flex items-center gap-2 mb-4"><AlertCircle className="w-5 h-5 text-[var(--color-accent-green)]" /><h3 className="font-bold">นักศึกษาที่รอการจัดคิว</h3></div>
+                    {waitingStudents.length === 0 ? (
+                        <div className="text-center py-12 text-gray-400"><Users className="w-12 h-12 mx-auto mb-3 opacity-20" /><p>ไม่มีนักศึกษารอคิวในขณะนี้</p></div>
                     ) : (
-                        <div className="space-y-3">
-                            {todayAppointments.map((apt) => (
-                                <div key={apt.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:border-[var(--color-accent-blue)] transition-colors">
-                                    <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm"><User className="w-6 h-6 text-gray-400" /></div>
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-2">
-                                            <h4 className="font-bold text-[var(--color-text-primary)]">{apt.studentName}</h4>
-                                            <span className="text-[10px] px-2 py-0.5 bg-gray-200 rounded text-gray-600 font-mono">{apt.caseCode}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <Clock className="w-4 h-4 text-[var(--color-text-secondary)]" />
-                                            <span className="text-sm text-[var(--color-text-secondary)]">{apt.time} น.</span>
-                                        </div>
-                                    </div>
-                                    <span className={`px-4 py-1.5 rounded-full text-xs font-medium ${getStatusColor(apt.status)}`}>{getStatusLabel(apt.status)}</span>
-                                </div>
-                            ))}
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead className="text-sm text-gray-500 border-b border-[var(--color-border)]">
+                                    <tr>
+                                        <th className="px-4 py-4 font-medium">ชื่อนักศึกษา</th>
+                                        <th className="px-4 py-4 font-medium">รอคิวตั้งแต่</th>
+                                        <th className="px-4 py-4 font-medium">ระดับความเร่งด่วน</th>
+                                        <th className="px-4 py-4 font-medium">การจัดการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50 text-sm">
+                                    {waitingStudents.map((student) => (
+                                        <tr key={student.id} className="hover:bg-gray-50/50 transition-colors">
+                                            <td className="px-4 py-4"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center border border-green-100"><User className="w-4 h-4 text-green-600" /></div><span className="font-medium">{student.name}</span></div></td>
+                                            <td className="px-4 py-4 text-[var(--color-text-secondary)]">{student.waitingSince}</td>
+                                            <td className="px-4 py-4"><span className={`px-3 py-1 rounded-full text-[11px] font-bold border ${getUrgencyColor(student.urgency)}`}>{getUrgencyLabel(student.urgency)}</span></td>
+                                            <td className="px-4 py-4"><button onClick={() => onScheduleAppointment?.(student.id)} className="text-[var(--color-accent-blue)] font-bold hover:underline">ลงตารางนัดหมาย</button></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     )}
                 </div>
             </div>
-
-            <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
-                <div className="flex items-center gap-2 mb-4"><AlertCircle className="w-5 h-5 text-[var(--color-accent-green)]" /><h3 className="font-bold">นักศึกษาที่รอการจัดคิว</h3></div>
-                {waitingStudents.length === 0 ? (
-                    <div className="text-center py-12 text-gray-400"><Users className="w-12 h-12 mx-auto mb-3 opacity-20" /><p>ไม่มีนักศึกษารอคิวในขณะนี้</p></div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                            <thead className="text-sm text-gray-500 border-b border-[var(--color-border)]">
-                                <tr>
-                                    <th className="px-4 py-4 font-medium">ชื่อนักศึกษา</th>
-                                    <th className="px-4 py-4 font-medium">รอคิวตั้งแต่</th>
-                                    <th className="px-4 py-4 font-medium">ระดับความเร่งด่วน</th>
-                                    <th className="px-4 py-4 font-medium">การจัดการ</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50 text-sm">
-                                {waitingStudents.map((student) => (
-                                    <tr key={student.id} className="hover:bg-gray-50/50 transition-colors">
-                                        <td className="px-4 py-4"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center border border-green-100"><User className="w-4 h-4 text-green-600" /></div><span className="font-medium">{student.name}</span></div></td>
-                                        <td className="px-4 py-4 text-[var(--color-text-secondary)]">{student.waitingSince}</td>
-                                        <td className="px-4 py-4"><span className={`px-3 py-1 rounded-full text-[11px] font-bold border ${getUrgencyColor(student.urgency)}`}>{getUrgencyLabel(student.urgency)}</span></td>
-                                        <td className="px-4 py-4"><button onClick={() => onScheduleAppointment?.(student.id)} className="text-[var(--color-accent-blue)] font-bold hover:underline">ลงตารางนัดหมาย</button></td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </div>
         </div>
-    </div>
     );
 }
