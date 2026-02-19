@@ -194,6 +194,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [showPriority, setShowPriority] = useState(false)
   const [showPDPA, setShowPDPA] = useState(false);
   const [showToken, setShowToken] = useState(false);
   const [debugForceShowHome, setDebugForceShowHome] = useState(false);
@@ -257,8 +258,10 @@ export default function App() {
         setUserData(data);
         const role = (data.roleName || '').toLowerCase() as UserRole;
         setUserRole(role);
-        if (localStorage.getItem('pdpa_accepted') !== 'true') setShowPDPA(true);
+        if (localStorage.getItem("priority_selected") !== 'true') setShowPriority(true); // priority first
+        else if (localStorage.getItem('pdpa_accepted') !== 'true') setShowPDPA(true);
         else if (localStorage.getItem('token_submitted') !== 'true') setShowToken(true);
+        //else if (localStorage.getItem("priority_selected") !== 'true') setShowWaiting(true); // if not priority can't use web
         else if (role) loadInitialData(role);
         setAppState('app');
       } else { localStorage.removeItem('token'); setAppState('landing'); }
@@ -322,11 +325,6 @@ export default function App() {
       }
     }
     if (userRole === 'counselor') {
-      // Mockup Data สำหรับ Dashboard (จะถูกใช้เมื่อ API ยังไม่มีข้อมูลส่งมา)
-      const mockGenerateToken = () => {
-        const token = Math.random().toString(36).substring(2, 10).toUpperCase();
-        return `TOKEN-${token}`;
-      };
 
       switch (currentPage) {
         case 'counselor-dashboard':
@@ -335,7 +333,6 @@ export default function App() {
               waitingStudents={waitingStudents.length > 0 ? waitingStudents : undefined}
               todayAppointments={todayAppointments.length > 0 ? todayAppointments : undefined}
               totalCasesCount={128}
-              onGenerateToken={mockGenerateToken}
               onScheduleAppointment={(id) => {
                 console.log('Scheduling for student:', id);
                 setCurrentPage('counselor-schedule');
@@ -350,7 +347,6 @@ export default function App() {
               waitingStudents={waitingStudents.length > 0 ? waitingStudents : undefined}
               todayAppointments={todayAppointments.length > 0 ? todayAppointments : undefined}
               totalCasesCount={128}
-              onGenerateToken={mockGenerateToken}
               onScheduleAppointment={() => setCurrentPage('counselor-schedule')}
             />
           );

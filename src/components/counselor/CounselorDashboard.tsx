@@ -16,23 +16,35 @@ export interface TodayAppointment {
     caseCode: string;
 }
 
+export interface allToken {
+  id: number;
+  token: string;
+  isUsed: boolean;
+  usedAt?: Date;
+  createdAt: Date;
+}
+
 interface CounselorDashboardProps {
     waitingStudents?: WaitingStudent[];
     todayAppointments?: TodayAppointment[];
+    allToken?: allToken[];
     totalCasesCount?: number;
-    onGenerateToken: () => string;
     onScheduleAppointment?: (studentId: string) => void;
 }
 
 export function CounselorDashboard({
     waitingStudents: initialWaitingStudents,
     todayAppointments: initialTodayAppointments,
+    allToken: initialUnusedToken,
     totalCasesCount: initialTotalCount,
-    onGenerateToken,
     onScheduleAppointment
 }: CounselorDashboardProps) {
-    const [generatedToken, setGeneratedToken] = useState<string | null>(null);
+    const [generatedToken, setGeneratedToken] = useState<string>("");
     const [copiedToken, setCopiedToken] = useState(false);
+    
+    //สร้าง local token ก่อนส่ง Api
+    const [token,setToken] = useState<string>("");
+    const [error,setError] = useState<string | null>(null);
 
     // Mockup Data
     const mockWaitingStudents: WaitingStudent[] = [
@@ -47,24 +59,108 @@ export function CounselorDashboard({
         { id: 'a3', time: '10:00', studentName: 'นายธันวา มาดี', status: 'completed', caseCode: 'CASE-2023-089' },
     ];
 
+    const mockallToken: allToken[]= [
+        { id: 1, token: "690001", isUsed: false, usedAt: undefined, createdAt: new Date()},
+        { id: 2, token: "690002", isUsed: true, usedAt: new Date(), createdAt: new Date() },
+        { id: 3, token: "690003", isUsed: false, usedAt: undefined, createdAt: new Date() },
+    ];
+
     // เลือกใช้ข้อมูลจาก Props หรือ Mockup
     const waitingStudents = initialWaitingStudents || mockWaitingStudents;
     const todayAppointments = initialTodayAppointments || mockTodayAppointments;
+    const allToken = initialUnusedToken || mockallToken;
     const totalCasesCount = initialTotalCount !== undefined ? initialTotalCount : 128;
 
     const handleGenerateToken = () => {
-        const token = onGenerateToken();
-        setGeneratedToken(token);
+        const isValid = validateTokenBE(token);
+
+        if (!isValid) {
+            setError("รหัสไม่ถูกต้อง หรือปี พ.ศ. ไม่ตรง");
+            setGeneratedToken("");
+            return;
+        }
+
+        if (isDuplicate(token)) {
+            setError("Token นี้ถูกสร้างไปแล้ว");
+            setGeneratedToken("")
+            return;
+        }
+
+        if (highestToken) {
+            const nextExpected =
+                (parseInt(highestToken.token) + 1).toString().padStart(6, "0");
+
+            if (token !== nextExpected) {
+                setError(`Token ผิดลำดับ`);
+                return;
+            }
+        }
+
+        const newId =
+            tokens.length > 0 ? Math.max(...tokens.map(t => t.id)) + 1 : 1;
+
+        const newToken: allToken = {
+            id: newId,
+            token: token,
+            isUsed: false,
+            createdAt: new Date()
+        };
+
+        setTokens(prev => [...prev, newToken]);
+        setError(null);
+        setGeneratedToken(token); 
         setCopiedToken(false);
     };
 
     const handleCopyToken = () => {
-        if (generatedToken) {
-            navigator.clipboard.writeText(generatedToken);
-            setCopiedToken(true);
-            setTimeout(() => setCopiedToken(false), 2000);
-        }
+        if (!generatedToken) return;
+
+        navigator.clipboard.writeText(generatedToken);
+        setCopiedToken(true);
+        setTimeout(() => setCopiedToken(false), 2000);
     };
+
+    //เช็คแพทเทิร์นของ input ที่ใส่เข้ามาว่า *เป็นปีตามปัจจุบันหรือไม่ *ครบ 6 ตัวไหม(สำหรับรันนัมเบอร์ 4 ตัว)
+    const validateTokenBE = (token:string) => {
+        const regex = /^\d{6}$/;
+        if (!regex.test(token)) return false;
+
+        const currentYearBE = (new Date().getFullYear() + 543)
+        .toString()
+        .slice(-2);
+
+        return token.slice(0, 2) === currentYearBE;
+    };
+
+    const isDuplicate = (token: string) => {
+        return tokens.some((t) => t.token === token);
+    };
+
+
+    // fallback mock ถ้าไม่มี initial
+    const [tokens, setTokens] = useState<allToken[]>(allToken);
+    const [sortAsc, setSortAsc] = useState(true);
+    const [filter, setFilter] = useState<"all" | "unused" | "used">("unused");
+
+    // filter
+    const filteredTokens = tokens.filter(token => {
+        if (filter === "all") return true;
+        if (filter === "unused") return !token.isUsed;
+        if (filter === "used") return token.isUsed;
+    });
+
+    // sort
+    const sortedTokens = [...filteredTokens].sort((a, b) =>
+        sortAsc
+        ? a.token.localeCompare(b.token)
+        : b.token.localeCompare(a.token)
+    );
+
+    const highestToken = tokens.length > 0
+    ? tokens.reduce((max, current) =>
+        current.token > max.token ? current : max
+        )
+    : null;
 
     const getUrgencyLabel = (urgency: string) => {
         switch (urgency) {
@@ -153,29 +249,131 @@ export function CounselorDashboard({
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                <div className="lg:col-span-1 bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
-                    <div className="flex items-center gap-2 mb-4">
-                        <Key className="w-5 h-5 text-[var(--color-accent-green)]" />
-                        <h3 className="font-bold">สร้างรหัสลงทะเบียน (Token)</h3>
-                    </div>
-                    <p className="text-sm text-[var(--color-text-secondary)] mb-6">สร้างรหัสเฉพาะสำหรับนักศึกษาใหม่</p>
-                    <button onClick={handleGenerateToken} className="w-full bg-[var(--color-accent-green)] text-white py-3 rounded-2xl hover:opacity-90 transition-opacity mb-4 font-medium">
-                        สร้างรหัสลงทะเบียนใหม่
-                    </button>
-                    {generatedToken && (
-                        <div className="bg-gray-50 border border-dashed border-gray-300 rounded-2xl p-4">
-                            <div className="flex items-center gap-2">
-                                <code className="flex-1 bg-white px-3 py-2 rounded-xl text-sm font-mono break-all border border-gray-100">{generatedToken}</code>
-                                <button onClick={handleCopyToken} className="p-2 hover:bg-white rounded-xl transition-colors shadow-sm">
-                                    {copiedToken ? <CheckCircle className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5 text-[var(--color-accent-blue)]" />}
-                                </button>
+            <div className="max-w-7xl mx-auto">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                        <div className="lg:col-span-1 bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
+                            <div className="flex items-center gap-2 mb-4">
+                                    <Key className="size-5 text-[var(--color-accent-green)]" />
+                                    <h3 className="font-bold">สร้างรหัสลงทะเบียน (Token)</h3>
                             </div>
-                        </div>
-                    )}
-                </div>
+                            <p className="text-sm text-[var(--color-text-secondary)] mb-6">สร้างรหัสเฉพาะสำหรับนักศึกษาใหม่</p>
 
-                <div className="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
+                            {/* input section */}
+                            <input
+                                className='w-full bg-gray-50 border border-dashed border-gray-300 rounded-2xl p-4 mb-4'
+                                type="text"
+                                value={token}
+                                onChange={(e) => {
+                                    const value = e.target.value.replace(/\D/g, "");
+                                    setToken(value);
+                                }}
+                                maxLength={6} 
+                                placeholder="เช่น ปปรรรร โดย ป(ปี) และ ร(รันนัมเบอร์)"
+                            />
+
+                            <button onClick={handleGenerateToken} className="w-full bg-[var(--color-accent-green)] text-white py-3 rounded-2xl hover:opacity-90 transition-opacity mb-4 font-medium">
+                                สร้างรหัสลงทะเบียนใหม่
+                            </button>
+                            
+                            {/* แจ้งเตือนหากมีการเขียนค่าผิด */}
+                            {error && <p className="text-red-500 mt-4">{error}</p>}
+                            
+                            {generatedToken && (
+                                <div className="bg-gray-50 border border-dashed border-gray-300 rounded-2xl p-4">
+                                    <div className="flex items-center gap-2">
+                                        <code className="flex-1 bg-white px-3 py-2 rounded-xl text-sm font-mono break-all border border-gray-100">{generatedToken}</code>
+                                        <button onClick={handleCopyToken} className="p-2 hover:bg-white rounded-xl transition-colors shadow-sm">
+                                            {copiedToken ? <CheckCircle className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5 text-[var(--color-accent-blue)]" />}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            </div>
+
+                            {/* Token Dashboard */}
+                            <div className="lg:col-span-2">
+                                <div className="bg-white rounded-2xl shadow-sm p-6">
+                                <h2 className="text-xl mb-4">Token Dashboard</h2>
+
+                                {/* Filter Tabs */}
+                                <div className="flex items-center gap-4 mb-4">
+                                    <button
+                                    onClick={() => setFilter('all')}
+                                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                                        filter === 'all'
+                                        ? 'bg-blue-100 text-blue-700'
+                                        : 'text-gray-600 hover:bg-gray-100'
+                                    }`}
+                                    >
+                                    ทั้งหมด
+                                    </button>
+                                    <button
+                                    onClick={() => setFilter('unused')}
+                                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                                        filter === 'unused'
+                                        ? 'bg-blue-100 text-blue-700'
+                                        : 'text-gray-600 hover:bg-gray-100'
+                                    }`}
+                                    >
+                                    ยังไม่ถูกใช้งาน
+                                    </button>
+                                    <button
+                                    onClick={() => setFilter('used')}
+                                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                                        filter === 'used'
+                                        ? 'bg-blue-100 text-blue-700'
+                                        : 'text-gray-600 hover:bg-gray-100'
+                                    }`}
+                                    >
+                                    ถูกใช้งานแล้ว
+                                    </button>
+
+                                    <button
+                                    onClick={() => setSortAsc(!sortAsc)}
+                                    className="ml-auto text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                                    >
+                                    Sort: {sortAsc ? 'ASC ↑' : 'DESC ↓'}
+                                    </button>
+                                </div>
+
+                                {/* Token List - Scrollable */}
+                                <div className="max-h-54 overflow-y-auto space-y-3 pr-2">
+                                    {sortedTokens.map((token) => (
+                                    <div
+                                        key={token.id}
+                                        className={`p-4 rounded-xl border-2 transition-all ${
+                                        token.isUsed
+                                            ? 'bg-green-50 border-green-200'
+                                            : 'bg-white border-gray-200 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        <div className="flex items-start justify-between">
+                                        <div>
+                                            <p className="font-semibold text-lg text-gray-800">
+                                            {token.token}
+                                            </p>
+                                            <p className="text-sm text-gray-500">{token.createdAt.toLocaleString()}</p>
+                                        </div>
+                                        </div>
+                                        {token.isUsed && (
+                                        <p className="mt-2 text-sm text-green-700">
+                                            ถูกใช้งานแล้ว
+                                        </p>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                        {highestToken && (
+                            <div className="p-4 bg-green-50 rounded-xl mt-2">
+                                <p className="text-sm text-gray-500">Token สูงสุดที่ถูกสร้างมาแล้ว</p>
+                                <p className="text-lg font-semibold">{highestToken.token}</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            
+
+                <div className="lg:col-span-3 bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
                     <div className="flex items-center gap-2 mb-4">
                         <Calendar className="w-5 h-5 text-[var(--color-accent-blue)]" />
                         <h3 className="font-bold">ตารางนัดหมายวันนี้</h3>
@@ -238,5 +436,6 @@ export function CounselorDashboard({
                 )}
             </div>
         </div>
+    </div>
     );
 }

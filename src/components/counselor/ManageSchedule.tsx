@@ -17,12 +17,18 @@ export interface WaitingStudent {
     urgency: 'low' | 'medium' | 'high';
 }
 
+export interface AvailableRooms {
+    id: string;
+    name: string;
+}
+
 interface ManageScheduleProps {
     schedule: TimeBlock[];
     onScheduleChange: (updatedSchedule: TimeBlock[]) => void;
     onDateChange: (newDate: Date) => void;
     currentDate: Date;
     waitingStudents?: WaitingStudent[];
+    AvailableRooms?: AvailableRooms[];
 }
 
 // --- Mockup Data ---
@@ -35,7 +41,6 @@ const MOCK_SCHEDULE: TimeBlock[] = [
     { day: 'พุธ', time: '09:00', available: false },
     { day: 'พุธ', time: '15:00', available: true, bookedBy: 'วิชาการ ดีเลิศ', caseCode: 'CASE-66-089' },
     { day: 'พฤหัสบดี', time: '10:00', available: true },
-    { day: 'พฤหัสบดี', time: '16:00', available: false },
     { day: 'ศุกร์', time: '09:00', available: true },
     { day: 'ศุกร์', time: '13:00', available: true, bookedBy: 'กิตติพงษ์ ใจดี', caseCode: 'CASE-67-010' },
 ];
@@ -46,12 +51,19 @@ const MOCK_WAITING: WaitingStudent[] = [
     { id: 'w3', name: 'นายขยัน หมั่นเพียร', waitingSince: '11:20 น.', urgency: 'low' },
 ];
 
+const MockAvailableRoom: AvailableRooms[] = [
+    { id: 'r1', name: 'ห้องที่ปรึกษา 1' },
+    { id: 'r2', name: 'ห้องที่ปรึกษา 2' },
+    { id: 'r3', name: 'ห้องกิจกรรมกลุ่ม'}
+]
+
 export function ManageSchedule({
     schedule = [],
     onScheduleChange,
     onDateChange,
     currentDate,
-    waitingStudents = MOCK_WAITING
+    waitingStudents = MOCK_WAITING,
+    AvailableRooms = MockAvailableRoom
 }: ManageScheduleProps) {
     const [selectedRoom, setSelectedRoom] = useState('ห้องที่ปรึกษา 1');
     const [showBookingModal, setShowBookingModal] = useState(false);
@@ -62,8 +74,13 @@ export function ManageSchedule({
     const [error, setError] = useState('');
     const [studentPreview, setStudentPreview] = useState<any>(null);
 
+    const [showAddRoom, setshowAddRoom] = useState(false);
+    const [showDeleteRoom, setshowDeleteRoom] = useState(false);
+    const [rooms,setRooms] = useState<AvailableRooms[]>(AvailableRooms);
+    const [newRooms, setNewRooms] = useState("");
+
     const days = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์'];
-    const times = ['09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
+    const times = ['09:00', '10:00', '11:00', '13:00', '14:00', '15:00'];
 
     const displaySchedule = schedule.length > 0 ? schedule : MOCK_SCHEDULE;
 
@@ -115,6 +132,47 @@ export function ManageSchedule({
             setStudentPreview(null);
             setCaseCodeInput('');
             setSelectedWaitingId('');
+        }
+    };
+
+    // เพิ่มห้อง
+    const handleAddRoom = () => {
+        if (!newRooms.trim()) return;
+
+        const isDuplicate = rooms.some(
+        (room) => room.name === newRooms.trim()
+        );
+
+        if (isDuplicate) {
+            setError('ห้องนี้มีอยู่แล้ว')
+            return;
+        }
+
+        //หา id ตัวเลขมากสุด
+        const maxIdNumber = rooms.length
+            ? Math.max(
+                ...rooms.map((room) =>
+                parseInt(room.id.replace("r", ""))
+                )
+            )
+            : 0;
+
+        const newRoom: AvailableRooms = {
+            id: `r${maxIdNumber + 1}`,
+            name: newRooms.trim(),
+        };
+
+        setRooms([...rooms, newRoom]);
+        setNewRooms("");
+        };
+
+    // ลบห้อง
+    const handleRemoveRoom = (id: string) => {
+        const updated = rooms.filter((room) => room.id !== id);
+        setRooms(updated);
+
+        if (selectedRoom === id) {
+        setSelectedRoom(updated[0]?.id || "");
         }
     };
 
@@ -206,6 +264,16 @@ export function ManageSchedule({
         onDateChange(newDate);
     };
 
+    const handleAddClick = () => {
+        setshowAddRoom(prev => !prev)
+        setshowDeleteRoom(false);
+    };
+
+    const handleDeleteClick = () => {
+        setshowDeleteRoom(true);
+        setshowAddRoom(false);
+    };
+
     return (
         <div className="p-8 max-w-7xl mx-auto font-sans">
             <header className="mb-8 flex justify-between items-end">
@@ -228,15 +296,99 @@ export function ManageSchedule({
                         <Home className="w-5 h-5" />
                         <span className="font-semibold">เลือกห้องทำงาน</span>
                     </div>
+                    
+                     {/* Select */}
                     <select
                         value={selectedRoom}
                         onChange={(e) => setSelectedRoom(e.target.value)}
-                        className="w-full p-3 rounded-xl border border-[var(--color-border)] bg-gray-50 outline-none focus:ring-2 focus:ring-[var(--color-accent-blue)]"
+                        className="w-full p-3 rounded-xl border border-gray-300 bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                        <option>ห้องที่ปรึกษา 1</option>
-                        <option>ห้องที่ปรึกษา 2</option>
-                        <option>ห้องกิจกรรมกลุ่ม</option>
+                        {rooms.map((room) => (
+                        <option key={room.id}>
+                            {room.name}
+                        </option>
+                        ))}
                     </select>
+
+                    <div className="flex gap-3 mt-4">
+                        <button
+                            onClick={handleAddClick}
+                            className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition-colors"
+                            >
+                            เพิ่มห้อง
+                        </button>
+                        <button
+                            onClick={handleDeleteClick}
+                            className="flex-1 px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors"
+                            >
+                            ลบห้อง
+                        </button>
+                    </div>
+
+                    {showAddRoom && (
+                        <div className="mb-4 p-4 bg-gray-50 rounded-xl space-y-3">
+                        <p className="text-sm text-gray-600 font-medium">กรอกชื่อห้องใหม่:</p>
+                        <input
+                            type="text"
+                            value={newRooms}
+                            onChange={(e) => setNewRooms(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddRoom()}
+                            placeholder="ชื่อห้อง"
+                            autoFocus
+                            className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-blue-500"
+                        />
+                        <div className="flex gap-2">
+                            <button
+                            onClick={handleAddRoom}
+                            disabled={!newRooms.trim()}
+                            className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white rounded-lg font-medium transition-colors"
+                            >
+                            บันทึก
+                            </button>
+                            <button
+                            onClick={() => {
+                                setshowAddRoom(false);
+                                setNewRooms('');
+                            }}
+                            className="flex-1 px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg font-medium transition-colors"
+                            >
+                            ยกเลิก
+                            </button>
+                        </div>
+                        </div>
+                    )}
+
+                    {/* Delete Room List - Shows when Delete button is clicked */}
+                    {showDeleteRoom && (
+                        <div className="mb-4 p-4 bg-gray-50 rounded-xl space-y-3">
+                        <p className="text-sm text-gray-600 font-medium">เลือกห้องที่ต้องการลบ:</p>
+                        <div className="space-y-2">
+                            {rooms.map((room,index) => (
+                            <div
+                                key={index}
+                                className="flex items-center justify-between px-4 py-3 bg-white rounded-lg border border-gray-200"
+                            >
+                                <span className="text-gray-700">{room.name}</span>
+                                <button
+                                onClick={() => handleRemoveRoom(room.id)}
+                                className="px-4 py-1 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors"
+                                >
+                                ลบ
+                                </button>
+                            </div>
+                            ))}
+                        </div>
+                        <button
+                            onClick={() => setshowDeleteRoom(false)}
+                            className="w-full px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg font-medium transition-colors"
+                        >
+                            ปิด
+                        </button>
+                        </div>
+                    )}
+
+                    {/* แจ้งเตือนว่ามีห้องอยู่แล้ว */}
+                    {error && <p className="text-red-500 mt-4">{error}</p>}
                 </div>
 
                 <div className="lg:col-span-3 bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)] flex items-center justify-between">
