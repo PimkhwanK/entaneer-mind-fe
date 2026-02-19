@@ -8,25 +8,33 @@ import { AlertCircle, Calendar, Clock, User, Sparkles, Timer, ArrowRight, Info }
 import { apiService } from './services/api.service';
 
 import { API_ENDPOINTS, getAuthHeader } from './config/api.config';
-import type { UserRole, Appointment, WaitingStudent, TodayAppointment, TimeBlock } from './types';
+import type { UserRole, Appointment, WaitingClient, TodayAppointment, TimeBlock } from './types';
 
-// Components
-import { BookingPage } from './components/student/BookingPage';
-import { StudentHistory } from './components/student/StudentHistory';
-import { StudentProfile } from './components/student/StudentProfile';
+// ── Client Components (จาก Pimpit) ──
+import { BookingPage } from './components/Client/BookingPage';
+import { ClientHistory } from './components/Client/ClientHistory';
+import { ClientProfile } from './components/Client/ClientProfile';
+
+// ── Counselor Components ──
 import { CounselorDashboard } from './components/counselor/CounselorDashboard';
 import { CaseNotePage } from './components/counselor/CaseNotePage';
 import { ManageSchedule } from './components/counselor/ManageSchedule';
+import { CounselorUserManagement } from './components/counselor/CounselorUserManagement';
+import { ReportGenerator } from './components/counselor/ReportGenerator';
+
+// ── Admin Components ──
 import { AdminHome } from './components/admin/AdminHome';
 import { UserManagement } from './components/admin/UserManagement';
 
-// --- Interface & Component: StudentHome ---
-interface StudentHomeProps {
+// ── Modal Components (จาก Pimpit) ──
+import { UrgencyModal } from './components/ClientUrgencyPage';
+
+// ── ClientHome (inline component) ──
+interface ClientHomeProps {
   onBookSession: () => void;
   onViewHistory: () => void;
   appointments: Appointment[];
   isWaitingForQueue?: boolean;
-  queuePosition?: number;
   onDebugSkipWaiting?: () => void;
   hasExistingBooking: boolean;
 }
@@ -39,14 +47,14 @@ const dailyQuotes = [
   "คุณเข้มแข็งกว่าที่คุณคิด และกล้าหาญกว่าที่คุณเชื่อ",
 ];
 
-export function StudentHome({
+export function ClientHome({
   onBookSession,
   onViewHistory,
   appointments: initialAppointments,
   isWaitingForQueue = false,
   onDebugSkipWaiting,
   hasExistingBooking
-}: StudentHomeProps) {
+}: ClientHomeProps) {
   const appointments: Appointment[] = initialAppointments?.length > 0 ? initialAppointments : [
     { id: '1', date: '15 ม.ค. 2569', time: '10:00', counselor: 'พี่ป๊อป (ห้อง 1)', status: 'upcoming' },
     { id: '2', date: '12 ม.ค. 2569', time: '14:30', counselor: 'พี่ป๊อป (ห้อง 1)', status: 'completed' },
@@ -60,9 +68,7 @@ export function StudentHome({
     return (
       <div className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center p-8 text-center font-sans">
         <div className="w-24 h-24 rounded-full bg-blue-50 flex items-center justify-center mb-6">
-          <div className="relative">
-            <Timer className="w-12 h-12 text-[var(--color-accent-blue)] animate-pulse" />
-          </div>
+          <Timer className="w-12 h-12 text-[var(--color-accent-blue)] animate-pulse" />
         </div>
         <h1 className="text-3xl font-bold text-gray-900 mb-4">ได้รับข้อมูลของคุณเรียบร้อยแล้ว</h1>
         <p className="text-lg text-gray-600 max-w-md mb-8 leading-relaxed">
@@ -103,11 +109,9 @@ export function StudentHome({
             onClick={hasExistingBooking ? onViewHistory : onBookSession}
             className={`w-full p-8 rounded-[2rem] shadow-md flex flex-col items-center justify-center gap-4 group h-full min-h-[250px] transition-all ${hasExistingBooking
               ? 'bg-amber-50 border-2 border-amber-200 text-amber-800 hover:bg-amber-100'
-              : 'bg-[var(--color-accent-green)] text-white hover:opacity-90'
-              }`}
+              : 'bg-[var(--color-accent-green)] text-white hover:opacity-90'}`}
           >
-            <div className={`w-16 h-16 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform ${hasExistingBooking ? 'bg-amber-200' : 'bg-white/20'
-              }`}>
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform ${hasExistingBooking ? 'bg-amber-200' : 'bg-white/20'}`}>
               {hasExistingBooking ? <Info className="w-8 h-8 text-amber-600" /> : <Calendar className="w-8 h-8 text-white" />}
             </div>
             <div className="text-center">
@@ -128,7 +132,6 @@ export function StudentHome({
               ประวัติทั้งหมด
             </button>
           </div>
-
           {upcomingAppointments.length === 0 ? (
             <div className="text-center py-12">
               <Calendar className="w-8 h-8 text-gray-300 mx-auto mb-4" />
@@ -148,7 +151,9 @@ export function StudentHome({
                       <span className="text-sm text-gray-500 flex items-center gap-1"><Clock className="w-4 h-4" /> {apt.time} น.</span>
                     </div>
                   </div>
-                  <div className="px-4 py-2 bg-green-50 text-green-700 rounded-xl text-xs font-bold border border-green-100">ยืนยันแล้ว</div>
+                  <div className="px-4 py-2 bg-green-50 text-green-700 rounded-xl text-xs font-bold border border-green-100">
+                    ยืนยันแล้ว
+                  </div>
                 </div>
               ))}
             </div>
@@ -184,68 +189,64 @@ export function StudentHome({
   );
 }
 
-// --- Main App Component ---
-type AppState = 'landing' | 'app' | 'error';
+// ── App ──
+type AppState = 'loading' | 'landing' | 'app' | 'error';
+
+function createHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  return { ...getAuthHeader(), ...extra };
+}
 
 export default function App() {
-  const [appState, setAppState] = useState<AppState>('landing');
+  const [appState, setAppState] = useState<AppState>('loading');
+  const [isLoading, setIsLoading] = useState(true);
   const [userRole, setUserRole] = useState<UserRole>(null);
   const [userData, setUserData] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+
+  const [showUrgency, setShowUrgency] = useState(false);
   const [showPDPA, setShowPDPA] = useState(false);
   const [showToken, setShowToken] = useState(false);
   const [debugForceShowHome, setDebugForceShowHome] = useState(false);
+
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [waitingStudents, setWaitingStudents] = useState<WaitingStudent[]>([]);
+  const [waitingClients] = useState<WaitingClient[]>([]);
   const [todayAppointments, setTodayAppointments] = useState<TodayAppointment[]>([]);
-  const [adminStats, setAdminStats] = useState<any>(null);
-  const [allUsers, setAllUsers] = useState<any[]>([]);
   const [counselorSchedule, setCounselorSchedule] = useState<TimeBlock[]>([]);
-  const [scheduleDate, setScheduleDate] = useState(new Date());
+  const [scheduleDate, setScheduleDate] = useState<Date>(new Date());
+  const [adminStats, setAdminStats] = useState<any>(null);
+  const [allUsers] = useState<any[]>([]);
 
-  // Logic ตรวจสอบว่ามีนัดหมายที่ยังไม่เกิดขึ้นหรือไม่
-  const hasUpcomingBooking = useMemo(() => {
-    return appointments.some(apt => apt.status === 'upcoming');
-  }, [appointments]);
+  const hasUpcomingBooking = useMemo(() =>
+    appointments.some(apt => apt.status === 'upcoming'), [appointments]);
 
-  const createHeaders = (additional: Record<string, string> = {}) => ({ ...additional, ...(getAuthHeader() as Record<string, string>) } as HeadersInit);
-
-  const fetchStudentData = async () => {
+  const fetchClientData = useCallback(async () => {
     try {
       const res = await fetch(API_ENDPOINTS.APPOINTMENTS.MY, { headers: createHeaders() });
       if (res.ok) setAppointments(await res.json());
-      else setAppointments([]);
-    } catch (e) { setAppointments([]); }
-  };
+    } catch (e) { console.error(e); }
+  }, []);
 
-  const fetchCounselorData = async () => {
+  const fetchCounselorData = useCallback(async () => {
     try {
       const res = await fetch(API_ENDPOINTS.APPOINTMENTS.COUNSELOR_TODAY, { headers: createHeaders() });
-      if (res.ok) {
-        const data = await res.json();
-        setTodayAppointments(data.appointments || []);
-        setWaitingStudents(data.waiting || []);
-      }
+      if (res.ok) setTodayAppointments(await res.json());
     } catch (e) { console.error(e); }
-  };
+  }, []);
 
-  const fetchAdminData = async () => {
+  const fetchAdminData = useCallback(async () => {
     try {
-      const statsRes = await fetch(API_ENDPOINTS.ADMIN.STATS, { headers: createHeaders() });
-      if (statsRes.ok) setAdminStats(await statsRes.json());
-      const usersRes = await fetch(API_ENDPOINTS.USERS.ALL, { headers: createHeaders() });
-      if (usersRes.ok) setAllUsers(await usersRes.json());
+      const res = await fetch(API_ENDPOINTS.ADMIN.STATS, { headers: createHeaders() });
+      if (res.ok) setAdminStats(await res.json());
     } catch (e) { console.error(e); }
-  };
+  }, []);
 
   const loadInitialData = useCallback((role: string) => {
     const r = role.toLowerCase();
-    if (r === 'student') { setCurrentPage('student-home'); fetchStudentData(); }
+    if (r === 'client') { setCurrentPage('client-home'); fetchClientData(); }
     else if (r === 'counselor') { setCurrentPage('counselor-dashboard'); fetchCounselorData(); }
     else if (r === 'admin') { setCurrentPage('admin-home'); fetchAdminData(); }
-  }, []);
+  }, [fetchClientData, fetchCounselorData, fetchAdminData]);
 
   const checkAuth = useCallback(async () => {
     const token = localStorage.getItem('token');
@@ -257,7 +258,8 @@ export default function App() {
         setUserData(data);
         const role = (data.roleName || '').toLowerCase() as UserRole;
         setUserRole(role);
-        if (localStorage.getItem('pdpa_accepted') !== 'true') setShowPDPA(true);
+        if (localStorage.getItem('urgency_submitted') !== 'true') setShowUrgency(true);
+        else if (localStorage.getItem('pdpa_accepted') !== 'true') setShowPDPA(true);
         else if (localStorage.getItem('token_submitted') !== 'true') setShowToken(true);
         else if (role) loadInitialData(role);
         setAppState('app');
@@ -276,88 +278,168 @@ export default function App() {
     checkAuth();
   }, [checkAuth]);
 
+  const handleUrgencySubmit = async (text: string) => {
+    try {
+      const urgencyValue = text.trim() ? text.trim() : 'ไม่ได้ระบุ';
+      localStorage.setItem('user_urgency', urgencyValue);
+      localStorage.setItem('urgency_submitted', 'true');
+      setShowUrgency(false);
+      setShowPDPA(true);
+    } catch (error) {
+      console.error(error);
+      alert('เกิดข้อผิดพลาดในการบันทึก');
+    }
+  };
+
   const handleTokenSubmit = async (code: string) => {
     try {
       await apiService.verifyCaseCode(code);
       localStorage.setItem('token_submitted', 'true');
       setShowToken(false);
-      alert("ลงทะเบยีนสำ เรจ็ ! กำ ลังเขา้ส่รู ะบบ...");
+      alert('ลงทะเบียนสำเร็จ! กำลังเข้าสู่ระบบ...');
       window.location.reload();
     } catch (error: any) {
       console.error(error);
-      alert(error.message || "รหัสไมถ่ กู ต้อง");
+      alert(error.message || 'รหัสไม่ถูกต้อง');
     }
   };
 
-  const handleLogout = () => { localStorage.clear(); setAppState('landing'); setUserRole(null); setUserData(null); setCurrentPage(''); setDebugForceShowHome(false); };
+  const handleLogout = () => {
+    localStorage.clear();
+    setAppState('landing');
+    setUserRole(null);
+    setUserData(null);
+    setCurrentPage('');
+    setDebugForceShowHome(false);
+  };
+
+  const mockGenerateToken = () => {
+    const token = Math.random().toString(36).substring(2, 10).toUpperCase();
+    return `TOKEN-${token}`;
+  };
 
   const renderContent = () => {
-    if (!userRole || !userData || showPDPA || showToken) return null;
-    if (userRole === 'student') {
-      const studentProfile = userData?.studentProfile || {};
-      const cases = studentProfile.cases || [];
+    if (!userRole || !userData || showUrgency || showPDPA || showToken) return null;
+
+    // ── Client ──
+    if (userRole === 'client') {
+      const clientProfile = userData?.clientProfile || {};
+      const cases = clientProfile.cases || [];
       const hasCase = cases.length > 0;
       const shouldShowWaiting = !hasCase && !debugForceShowHome;
+
+      // หน้า Waiting: แสดงแทนทุก page ถ้ายังไม่มี case
+      if (shouldShowWaiting) {
+        return (
+          <div className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center p-8 text-center font-sans">
+            <div className="w-24 h-24 rounded-full bg-blue-50 flex items-center justify-center mb-6">
+              <Timer className="w-12 h-12 text-[var(--color-accent-blue)] animate-pulse" />
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">ได้รับข้อมูลของคุณเรียบร้อยแล้ว</h1>
+            <p className="text-lg text-gray-600 max-w-md mb-8 leading-relaxed">
+              พี่ป๊อปกำลังพิจารณาและจัดสรรผู้ให้คำปรึกษาที่เหมาะสมกับคุณ
+              เราจะแจ้งเตือนคุณผ่านทางหน้าเพจ, เว็บไซต์ และ Google Calendar เมื่อตารางเวลาลงตัว
+            </p>
+            <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 max-w-lg mb-8">
+              <p className="text-amber-800 text-sm italic">"ระหว่างรอ... อย่าลืมใจดีกับตัวเองให้มากๆ นะครับ"</p>
+            </div>
+            <button
+              onClick={() => setDebugForceShowHome(true)}
+              className="flex items-center gap-2 text-sm text-gray-400 hover:text-[var(--color-accent-blue)] transition-colors"
+            >
+              เข้าสู่หน้าหลักชั่วคราว (เพื่อการทดสอบ) <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        );
+      }
+
       switch (currentPage) {
-        case 'student-home': return (
-          <StudentHome
+        case 'client-home': return (
+          <ClientHome
             appointments={appointments}
-            onBookSession={() => setCurrentPage('student-booking')}
-            onViewHistory={() => setCurrentPage('student-history')}
+            onBookSession={() => setCurrentPage('client-booking')}
+            onViewHistory={() => setCurrentPage('client-history')}
             isWaitingForQueue={shouldShowWaiting}
             onDebugSkipWaiting={() => setDebugForceShowHome(true)}
             hasExistingBooking={hasUpcomingBooking}
           />
         );
-        case 'student-booking': return (
+        case 'client-booking': return (
           <BookingPage
-            onBook={() => { fetchStudentData(); setCurrentPage('student-history'); }}
-            onNavigateToHistory={() => setCurrentPage('student-history')}
+            onBook={() => { fetchClientData(); setCurrentPage('client-history'); }}
+            onNavigateToHistory={() => setCurrentPage('client-history')}
             hasExistingBooking={hasUpcomingBooking}
           />
         );
-        case 'student-history': return <StudentHistory appointments={appointments} />;
-        case 'student-profile': return <StudentProfile profile={{ name: `${userData.firstName} ${userData.lastName}`, email: userData.cmuAccount || '', studentId: userData.studentProfile?.studentId || '', department: userData.studentProfile?.department || '', phone: userData.phoneNum || '-', enrollmentDate: userData.createdAt ? new Date(userData.createdAt).toLocaleDateString() : '-' }} onSave={() => { }} />;
-        default: return <StudentHome appointments={appointments} onBookSession={() => setCurrentPage('student-booking')} onViewHistory={() => setCurrentPage('student-history')} hasExistingBooking={hasUpcomingBooking} />;
+        case 'client-history': return <ClientHistory appointments={appointments} />;
+        case 'client-profile': return (
+          <ClientProfile
+            profile={{
+              name: `${userData.firstName} ${userData.lastName}`,
+              email: userData.cmuAccount || '',
+              clientId: userData.clientProfile?.clientId || '',
+              department: userData.clientProfile?.department || '',
+              phone: userData.phoneNum || '-',
+              enrollmentDate: userData.createdAt ? new Date(userData.createdAt).toLocaleDateString() : '-'
+            }}
+            onSave={() => { }}
+          />
+        );
+        default: return (
+          <ClientHome
+            appointments={appointments}
+            onBookSession={() => setCurrentPage('client-booking')}
+            onViewHistory={() => setCurrentPage('client-history')}
+            hasExistingBooking={hasUpcomingBooking}
+          />
+        );
       }
     }
-    if (userRole === 'counselor') {
-      // Mockup Data สำหรับ Dashboard (จะถูกใช้เมื่อ API ยังไม่มีข้อมูลส่งมา)
-      const mockGenerateToken = () => {
-        const token = Math.random().toString(36).substring(2, 10).toUpperCase();
-        return `TOKEN-${token}`;
-      };
 
+    // ── Counselor ──
+    if (userRole === 'counselor') {
       switch (currentPage) {
-        case 'counselor-dashboard':
-          return (
-            <CounselorDashboard
-              waitingStudents={waitingStudents.length > 0 ? waitingStudents : undefined}
-              todayAppointments={todayAppointments.length > 0 ? todayAppointments : undefined}
-              totalCasesCount={128}
-              onGenerateToken={mockGenerateToken}
-              onScheduleAppointment={(id) => {
-                console.log('Scheduling for student:', id);
-                setCurrentPage('counselor-schedule');
-              }}
-            />
-          );
+        case 'counselor-dashboard': return (
+          <CounselorDashboard
+            waitingClients={waitingClients.length > 0 ? waitingClients : undefined}
+            todayAppointments={todayAppointments.length > 0 ? todayAppointments : undefined}
+            totalCasesCount={128}
+            onGenerateToken={mockGenerateToken}
+            onScheduleAppointment={() => setCurrentPage('counselor-schedule')}
+            onNavigateToReport={() => setCurrentPage('counselor-report')}
+          />
+        );
         case 'counselor-notes': return <CaseNotePage />;
-        case 'counselor-schedule': return <ManageSchedule schedule={counselorSchedule} currentDate={scheduleDate} onScheduleChange={setCounselorSchedule} onDateChange={setScheduleDate} />;
-        default:
-          return (
-            <CounselorDashboard
-              waitingStudents={waitingStudents.length > 0 ? waitingStudents : undefined}
-              todayAppointments={todayAppointments.length > 0 ? todayAppointments : undefined}
-              totalCasesCount={128}
-              onGenerateToken={mockGenerateToken}
-              onScheduleAppointment={() => setCurrentPage('counselor-schedule')}
-            />
-          );
+        case 'counselor-schedule': return (
+          <ManageSchedule
+            schedule={counselorSchedule}
+            currentDate={scheduleDate}
+            onScheduleChange={setCounselorSchedule}
+            onDateChange={setScheduleDate}
+          />
+        );
+        case 'counselor-users': return <CounselorUserManagement />;
+        case 'counselor-report': return <ReportGenerator />;
+        default: return (
+          <CounselorDashboard
+            waitingClients={waitingClients.length > 0 ? waitingClients : undefined}
+            todayAppointments={todayAppointments.length > 0 ? todayAppointments : undefined}
+            totalCasesCount={128}
+            onGenerateToken={mockGenerateToken}
+            onScheduleAppointment={() => setCurrentPage('counselor-schedule')}
+            onNavigateToReport={() => setCurrentPage('counselor-report')}
+          />
+        );
       }
     }
+
+    // ── Admin ──
     if (userRole === 'admin') {
-      const stats = adminStats || { totalUsers: 0, activeStudents: 0, activeCounselors: 0, pendingApprovals: 0, totalSessions: 0, sessionsThisMonth: 0, upcomingSessions: 0, averageWaitTime: '0', topIssueTags: [] };
+      const stats = adminStats || {
+        totalUsers: 0, activeClients: 0, activeCounselors: 0,
+        pendingApprovals: 0, totalSessions: 0, sessionsThisMonth: 0,
+        upcomingSessions: 0, averageWaitTime: '0', topIssueTags: []
+      };
       switch (currentPage) {
         case 'admin-home': return <AdminHome stats={stats} onNavigateToApprovals={() => setCurrentPage('admin-users')} />;
         case 'admin-users': return <UserManagement users={allUsers} onApprove={fetchAdminData} onSuspend={fetchAdminData} />;
@@ -381,6 +463,7 @@ export default function App() {
       <Layout userRole={userRole} currentPage={currentPage} onNavigate={setCurrentPage} onLogout={handleLogout}>
         {renderContent()}
       </Layout>
+      {showUrgency && <UrgencyModal onSubmit={(text: string) => handleUrgencySubmit(text)} />}
       {showPDPA && <PDPAModal onAccept={() => { localStorage.setItem('pdpa_accepted', 'true'); setShowPDPA(false); setShowToken(true); }} />}
       {showToken && <TokenModal onSubmit={handleTokenSubmit} />}
     </GoogleOAuthProvider>

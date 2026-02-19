@@ -1,9 +1,9 @@
 import React from 'react';
-import { LogOut, Home, Calendar, User, Users, Settings, FileText, Clock } from 'lucide-react';
+import { LogOut, Home, Calendar, User, Users, FileText, Clock, BarChart3 } from 'lucide-react';
 
 interface LayoutProps {
     children: React.ReactNode;
-    userRole: 'student' | 'counselor' | 'admin' | null;
+    userRole: 'student' | 'client' | 'counselor' | 'admin' | null;
     currentPage: string;
     onNavigate: (page: string) => void;
     onLogout: () => void;
@@ -17,19 +17,24 @@ export function Layout({ children, userRole, currentPage, onNavigate, onLogout }
     const getNavItems = () => {
         switch (userRole) {
             case 'student':
+            case 'client':
                 return [
-                    { icon: Home, label: 'Home', page: 'student-home' },
-                    { icon: Calendar, label: 'Book Session', page: 'student-booking' },
-                    { icon: FileText, label: 'History', page: 'student-history' },
-                    { icon: User, label: 'Profile', page: 'student-profile' },
+                    { icon: Home, label: 'Home', page: 'client-home' },
+                    { icon: Calendar, label: 'Book Session', page: 'client-booking' },
+                    { icon: FileText, label: 'History', page: 'client-history' },
+                    { icon: User, label: 'Profile', page: 'client-profile' },
                 ];
             case 'counselor':
                 return [
                     { icon: Home, label: 'Dashboard', page: 'counselor-dashboard' },
                     { icon: FileText, label: 'Case Notes', page: 'counselor-notes' },
                     { icon: Clock, label: 'Manage Schedule', page: 'counselor-schedule' },
+                    // ── เพิ่มใหม่ ──
+                    { icon: Users, label: 'User Management', page: 'counselor-users' },
+                    { icon: BarChart3, label: 'Full Report', page: 'counselor-report' },
                 ];
             case 'admin':
+                // ── ของเดิม ไม่แตะ ──
                 return [
                     { icon: Home, label: 'Dashboard', page: 'admin-home' },
                     { icon: Users, label: 'User Management', page: 'admin-users' },
@@ -44,13 +49,13 @@ export function Layout({ children, userRole, currentPage, onNavigate, onLogout }
     return (
         <div className="min-h-screen flex">
             {/* Sidebar */}
-            <aside className="w-64 bg-white shadow-sm border-r border-[var(--color-border)] flex flex-col">
+            <aside className="w-64 bg-white shadow-sm border-r border-[var(--color-border)] flex flex-col sticky top-0 h-screen">
                 <div className="p-6 border-b border-[var(--color-border)]">
                     <h3 className="text-[var(--color-accent-blue)]">Entaneer Mind</h3>
-                    <p className="text-sm text-[var(--color-text-secondary)] mt-1 capitalize">{userRole}</p>
+                    <p className="text-sm text-[var(--color-text-secondary)] mt-1 capitalize">{(userRole === 'student' || userRole === 'client') ? 'Client' : userRole}</p>
                 </div>
 
-                <nav className="flex-1 p-4 space-y-2">
+                <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
                     {navItems.map((item) => {
                         const Icon = item.icon;
                         const isActive = currentPage === item.page;
@@ -59,8 +64,8 @@ export function Layout({ children, userRole, currentPage, onNavigate, onLogout }
                                 key={item.page}
                                 onClick={() => onNavigate(item.page)}
                                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${isActive
-                                        ? 'bg-[var(--color-mint-green)] text-[var(--color-accent-green)]'
-                                        : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-primary-blue)]'
+                                    ? 'bg-[var(--color-mint-green)] text-[var(--color-accent-green)]'
+                                    : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-primary-blue)]'
                                     }`}
                             >
                                 <Icon className="w-5 h-5" />

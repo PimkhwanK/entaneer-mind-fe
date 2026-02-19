@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, Shield, Calendar, Timer } from 'lucide-react';
+import { Facebook, Shield, Calendar, Timer } from 'lucide-react';
 
 interface LandingPageProps {
     onLoginSuccess?: () => void;
@@ -60,11 +60,15 @@ export function LandingPage({ onLoginSuccess }: LandingPageProps) {
                         {/* ขั้นตอนที่ 1 */}
                         <div className="text-center p-6 bg-[var(--color-primary-blue)] rounded-2xl border border-blue-50">
                             <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[var(--color-mint-green)] flex items-center justify-center">
-                                <Heart className="w-6 h-6 text-[var(--color-accent-green)]" />
+                                <Facebook className="w-6 h-6 text-[var(--color-accent-green)]" />
                             </div>
                             <h4 className="font-bold text-gray-800 mb-2 text-sm">1. ติดต่อเพจ Facebook</h4>
                             <p className="text-xs text-gray-500 leading-relaxed">
-                                ติดต่อผ่านเพจ <span className="text-blue-600">Entaneer Mind Friend</span> เพื่อพูดคุยเบื้องต้นก่อนรับบริการ
+                                ติดต่อผ่านเพจ {" "}
+                                <a href="https://web.facebook.com/EntaneerMindFriendCMU" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-medium">
+                                    Entaneer Mind Friend - คณะวิศวกรรมศาสตร์ มหาวิทยาลัยเชียงใหม่
+                                </a>
+                                {" "}เพื่อพูดคุยเบื้องต้นก่อนรับบริการ
                             </p>
                         </div>
 

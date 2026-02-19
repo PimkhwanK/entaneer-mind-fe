@@ -30,7 +30,7 @@ export function PDPAModal({ onAccept }: PDPAModalProps) {
                         </h4>
                         <p className="text-sm">
                             Entaneer Mind เป็นเครื่องมือประเมินสุขภาพจิตเบื้องต้นและนัดหมายเพื่อรับคำปรึกษา
-                            โดยมีวัตถุประสงค์เพื่อคัดกรองความเสี่ยงและติดตามดูแลช่วยเหลือนักศึกษา
+                            โดยมีวัตถุประสงค์เพื่อคัดกรองความเสี่ยงและติดตามดูแลช่วยเหลือผู้รับคำปรึกษา
                             ข้อมูลจะถูกนำไปใช้เพื่อพัฒนาระบบการดูแลสุขภาพจิตตามพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562
                         </p>
                     </section>
@@ -42,7 +42,7 @@ export function PDPAModal({ onAccept }: PDPAModalProps) {
                         <ul className="list-none space-y-3 text-sm">
                             <li className="flex items-start gap-3">
                                 <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-[var(--color-accent-green)] shrink-0" />
-                                <span><b>ข้อมูลส่วนบุคคล:</b> ชื่อ-นามสกุล, รหัสนักศึกษา และข้อมูลการติดต่อเพื่อใช้ในการนัดหมาย</span>
+                                <span><b>ข้อมูลส่วนบุคคล:</b> ชื่อ-นามสกุล, รหัสประจำตัว และข้อมูลการติดต่อเพื่อใช้ในการนัดหมาย</span>
                             </li>
                             <li className="flex items-start gap-3">
                                 <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-[var(--color-accent-green)] shrink-0" />
