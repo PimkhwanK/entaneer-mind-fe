@@ -1,61 +1,93 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Calendar, Clock, User, Search, Filter, XCircle } from 'lucide-react';
+import { API_ENDPOINTS, getAuthHeader } from '../../config/api.config';
 
 interface Appointment {
-    id: string;
+    id: string; // sessionId as string
     date: string;
     time: string;
     counselor: string;
-    status: 'upcoming' | 'completed' | 'cancelled'; 
+    status: 'upcoming' | 'completed' | 'cancelled';
     notes?: string;
+
+    // raw
+    timeStartISO?: string | null;
 }
 
 interface ClientHistoryProps {
-    appointments: Appointment[];
+    appointments?: Appointment[]; // keep compatible with App.tsx
     onCancelAppointment?: (id: string) => void;
 }
 
-export function ClientHistory({ appointments: initialAppointments, onCancelAppointment }: ClientHistoryProps) {
+function formatThaiDate(iso: string) {
+    return new Date(iso).toLocaleDateString('th-TH', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+    });
+}
+
+function formatTimeHM(iso: string) {
+    return new Date(iso).toLocaleTimeString('th-TH', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    });
+}
+
+export function ClientHistory({ appointments: initialAppointments = [], onCancelAppointment }: ClientHistoryProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | 'upcoming' | 'completed' | 'cancelled'>('all');
+    const [loading, setLoading] = useState(true);
 
-    // จัดการข้อมูลด้วย State เพื่อให้เมื่อลบ (Cancel) แล้วหายไปทันที
-    const [localAppointments, setLocalAppointments] = useState<Appointment[]>(() => {
-        const mockData: Appointment[] = [
-            {
-                id: '1',
-                date: '24 ม.ค. 2567',
-                time: '10:30',
-                counselor: 'พี่ป๊อป (ห้อง 1)',
-                status: 'upcoming',
-                notes: 'ปรึกษาเรื่องการเรียนและแรงจูงใจ'
-            },
-            {
-                id: '2',
-                date: '15 ม.ค. 2567',
-                time: '13:00',
-                counselor: 'พี่น้ำขิง (ห้อง 2)',
-                status: 'completed',
-                notes: 'ติดตามผลจากครั้งที่แล้ว รู้สึกดีขึ้น'
-            },
-            {
-                id: '3',
-                date: '10 ม.ค. 2567',
-                time: '09:00',
-                counselor: 'พี่ป๊อป (ห้อง 1)',
-                status: 'cancelled',
-                notes: 'ติดธุระด่วนทางบ้าน'
-            }
-        ];
-        return initialAppointments.length > 0 ? initialAppointments : mockData;
-    });
+    const [localAppointments, setLocalAppointments] = useState<Appointment[]>(initialAppointments);
 
-    const filteredAppointments = localAppointments.filter((apt) => {
-        const matchesSearch = apt.counselor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            apt.date.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesFilter = filterStatus === 'all' || apt.status === filterStatus;
-        return matchesSearch && matchesFilter;
-    });
+    const fetchHistory = async () => {
+        try {
+            setLoading(true);
+            const res = await fetch(API_ENDPOINTS.SESSIONS.HISTORY, { headers: getAuthHeader() });
+            if (!res.ok) throw new Error(await res.text());
+
+            const data = await res.json();
+
+            const mapped: Appointment[] = (data.appointments || []).map((a: any) => {
+                const iso = a.timeStart as string | null;
+                return {
+                    id: String(a.sessionId ?? a.id),
+                    date: iso ? formatThaiDate(iso) : '—',
+                    time: iso ? formatTimeHM(iso) : '—',
+                    counselor: a.counselor || '—',
+                    status: a.status,
+                    notes: a.notes || '—',
+                    timeStartISO: iso,
+                };
+            });
+
+            setLocalAppointments(mapped);
+        } catch (e) {
+            console.error(e);
+            // fallback to whatever was passed
+            setLocalAppointments(initialAppointments);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchHistory();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const filteredAppointments = useMemo(() => {
+        return localAppointments.filter((apt) => {
+            const matchesSearch =
+                apt.counselor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                apt.date.toLowerCase().includes(searchTerm.toLowerCase());
+
+            const matchesFilter = filterStatus === 'all' || apt.status === filterStatus;
+            return matchesSearch && matchesFilter;
+        });
+    }, [localAppointments, searchTerm, filterStatus]);
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -66,13 +98,31 @@ export function ClientHistory({ appointments: initialAppointments, onCancelAppoi
         }
     };
 
-    const handleCancel = (id: string) => {
-        if (window.confirm('คุณต้องการยกเลิกนัดหมายนี้ใช่หรือไม่?')) {
-            // เรียกฟังก์ชันจาก props (ถ้ามี)
+    const handleCancel = async (id: string) => {
+        if (!window.confirm('คุณต้องการยกเลิกนัดหมายนี้ใช่หรือไม่?')) return;
+
+        try {
+            // optional callback
             onCancelAppointment?.(id);
 
-            // ลบข้อมูลออกจาก List ทันทีเพื่อให้ "หายไป" ตามที่ต้องการ
-            setLocalAppointments(prev => prev.filter(apt => apt.id !== id));
+            const sessionId = Number(id);
+            const res = await fetch(API_ENDPOINTS.SESSIONS.CANCEL(sessionId), {
+                method: 'POST',
+                headers: getAuthHeader(),
+            });
+
+            if (!res.ok) throw new Error(await res.text());
+
+            // update UI instantly to cancelled
+            setLocalAppointments(prev =>
+                prev.map(a => (a.id === id ? { ...a, status: 'cancelled' } : a))
+            );
+
+            // refresh from backend (so status matches derived logic)
+            await fetchHistory();
+        } catch (e: any) {
+            console.error(e);
+            alert(e?.message || 'ยกเลิกไม่สำเร็จ');
         }
     };
 
@@ -140,8 +190,15 @@ export function ClientHistory({ appointments: initialAppointments, onCancelAppoi
                                 <th className="px-6 py-4 text-center">Action</th>
                             </tr>
                         </thead>
+
                         <tbody>
-                            {filteredAppointments.length === 0 ? (
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
+                                        กำลังโหลดข้อมูล...
+                                    </td>
+                                </tr>
+                            ) : filteredAppointments.length === 0 ? (
                                 <tr>
                                     <td colSpan={6} className="px-6 py-12 text-center">
                                         <Calendar className="w-12 h-12 mx-auto mb-3 text-[var(--color-border)]" />
@@ -190,6 +247,7 @@ export function ClientHistory({ appointments: initialAppointments, onCancelAppoi
                                 ))
                             )}
                         </tbody>
+
                     </table>
                 </div>
             </div>

@@ -220,6 +220,16 @@ export default function App() {
   const hasUpcomingBooking = useMemo(() =>
     appointments.some(apt => apt.status === 'upcoming'), [appointments]);
 
+  const counselorTodayAppointments = useMemo(() => {
+    return todayAppointments.map((apt) => ({
+      id: apt.id,
+      time: apt.time,
+      studentName: (apt as TodayAppointment & { studentName?: string }).studentName ?? apt.clientName,
+      status: apt.status,
+      caseCode: apt.caseCode,
+    }));
+  }, [todayAppointments]);
+
   const fetchClientData = useCallback(async () => {
     try {
       const res = await fetch(API_ENDPOINTS.APPOINTMENTS.MY, { headers: createHeaders() });
@@ -313,11 +323,6 @@ export default function App() {
     setDebugForceShowHome(false);
   };
 
-  const mockGenerateToken = () => {
-    const token = Math.random().toString(36).substring(2, 10).toUpperCase();
-    return `TOKEN-${token}`;
-  };
-
   const renderContent = () => {
     if (!userRole || !userData || showUrgency || showPDPA || showToken) return null;
 
@@ -401,10 +406,9 @@ export default function App() {
       switch (currentPage) {
         case 'counselor-dashboard': return (
           <CounselorDashboard
-            waitingClients={waitingClients.length > 0 ? waitingClients : undefined}
-            todayAppointments={todayAppointments.length > 0 ? todayAppointments : undefined}
+            waitingStudents={waitingClients.length > 0 ? waitingClients : undefined}
+            todayAppointments={counselorTodayAppointments.length > 0 ? counselorTodayAppointments : undefined}
             totalCasesCount={128}
-            onGenerateToken={mockGenerateToken}
             onScheduleAppointment={() => setCurrentPage('counselor-schedule')}
             onNavigateToReport={() => setCurrentPage('counselor-report')}
           />
@@ -422,10 +426,9 @@ export default function App() {
         case 'counselor-report': return <ReportGenerator />;
         default: return (
           <CounselorDashboard
-            waitingClients={waitingClients.length > 0 ? waitingClients : undefined}
-            todayAppointments={todayAppointments.length > 0 ? todayAppointments : undefined}
+            waitingStudents={waitingClients.length > 0 ? waitingClients : undefined}
+            todayAppointments={counselorTodayAppointments.length > 0 ? counselorTodayAppointments : undefined}
             totalCasesCount={128}
-            onGenerateToken={mockGenerateToken}
             onScheduleAppointment={() => setCurrentPage('counselor-schedule')}
             onNavigateToReport={() => setCurrentPage('counselor-report')}
           />

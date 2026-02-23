@@ -12,6 +12,7 @@ export interface TodayAppointment {
     id: string;
     time: string;
     clientName: string;
+    studentName: string;
     status: 'pending' | 'in-progress' | 'completed';
     caseCode: string;
 }
