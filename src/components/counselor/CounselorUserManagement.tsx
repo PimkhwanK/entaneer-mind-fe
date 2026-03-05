@@ -129,16 +129,12 @@ export function CounselorUserManagement({
         setSubmitError('');
 
         // Validation
-        if (!form.firstName.trim() || !form.lastName.trim() || !form.cmuAccount.trim()) {
-            setSubmitError('กรุณากรอกข้อมูลให้ครบถ้วน');
+        if (!form.cmuAccount.trim()) {
+            setSubmitError('กรุณากรอก CMU Account');
             return;
         }
         if (!form.cmuAccount.includes('@')) {
             setSubmitError('รูปแบบ CMU Account ไม่ถูกต้อง');
-            return;
-        }
-        if (form.role === 'client' && !form.department.trim()) {
-            setSubmitError('กรุณาระบุคณะ/ภาควิชาสำหรับนักศึกษา');
             return;
         }
 
@@ -435,41 +431,15 @@ export function CounselorUserManagement({
                                                 }`}
                                         >
                                             {r === 'counselor' ? <Shield className="w-4 h-4" /> : <User className="w-4 h-4" />}
-                                            {r === 'client' ? 'Client (นักศึกษา)' : 'Counselor'}
+                                            {r === 'client' ? 'Client (นักศึกษา/บุคลากร)' : 'Counselor'}
                                         </button>
                                     ))}
                                 </div>
                             </div>
 
-                            {/* ชื่อ-นามสกุล */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อ</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={form.firstName}
-                                        onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))}
-                                        className="w-full px-4 py-3 rounded-2xl border border-[var(--color-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-green)]"
-                                        placeholder="ชื่อ"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">นามสกุล</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={form.lastName}
-                                        onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
-                                        className="w-full px-4 py-3 rounded-2xl border border-[var(--color-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-green)]"
-                                        placeholder="นามสกุล"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* CMU Account */}
+                            {/* CMU Account — ใส่อย่างเดียวพอ */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">CMU Account</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">CMU Account <span className="text-red-500">*</span></label>
                                 <input
                                     type="text"
                                     required
@@ -480,62 +450,31 @@ export function CounselorUserManagement({
                                 />
                             </div>
 
-                            {/* Fields เฉพาะ Client */}
+                            {/* ความเร่งด่วน (เฉพาะ client) */}
                             {form.role === 'client' && (
-                                <>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            คณะ/ภาควิชา <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={form.department}
-                                            onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
-                                            className="w-full px-4 py-3 rounded-2xl border border-[var(--color-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-green)]"
-                                            placeholder="เช่น วิศวกรรมคอมพิวเตอร์"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            ระดับความเร่งด่วน
-                                        </label>
-                                        <div className="flex gap-3">
-                                            {(['low', 'medium', 'high'] as const).map(p => (
-                                                <button
-                                                    key={p}
-                                                    type="button"
-                                                    onClick={() => setForm(f => ({ ...f, priority: p }))}
-                                                    className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${form.priority === p
-                                                        ? p === 'high'
-                                                            ? 'bg-red-500 text-white'
-                                                            : p === 'medium'
-                                                                ? 'bg-yellow-400 text-white'
-                                                                : 'bg-green-500 text-white'
-                                                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                                                        }`}
-                                                >
-                                                    {p === 'high' ? 'เร่งด่วนมาก' : p === 'medium' ? 'ปานกลาง' : 'ปกติ'}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </>
-                            )}
-
-                            {/* Fields เฉพาะ Counselor */}
-                            {form.role === 'counselor' && (
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        หมายเลข Counselor (ถ้ามี)
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        ระดับความเร่งด่วน <span className="text-red-500">*</span>
                                     </label>
-                                    <input
-                                        type="text"
-                                        value={form.counselorNumber}
-                                        onChange={e => setForm(f => ({ ...f, counselorNumber: e.target.value }))}
-                                        className="w-full px-4 py-3 rounded-2xl border border-[var(--color-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-green)] font-mono"
-                                        placeholder="เช่น C-003"
-                                    />
+                                    <div className="flex gap-3">
+                                        {(['low', 'medium', 'high'] as const).map(p => (
+                                            <button
+                                                key={p}
+                                                type="button"
+                                                onClick={() => setForm(f => ({ ...f, priority: p }))}
+                                                className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${form.priority === p
+                                                    ? p === 'high'
+                                                        ? 'bg-red-500 text-white'
+                                                        : p === 'medium'
+                                                            ? 'bg-yellow-400 text-white'
+                                                            : 'bg-green-500 text-white'
+                                                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                                    }`}
+                                            >
+                                                {p === 'high' ? '🔴 เร่งด่วนมาก' : p === 'medium' ? '🟡 ปานกลาง' : '🟢 ปกติ'}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Clock, User, Users, Key, Copy, CheckCircle, AlertCircle, BarChart3, Activity, TrendingUp, ArrowUpRight, FileText } from 'lucide-react';
+import { Calendar, Clock, User, Users, Key, Copy, CheckCircle, AlertCircle, BarChart3, Activity, TrendingUp, ArrowUpRight, FileText, XCircle } from 'lucide-react';
 export interface WaitingStudent {
     id: string;
     name: string;
@@ -29,7 +29,8 @@ interface CounselorDashboardProps {
     allToken?: allToken[];
     totalCasesCount?: number;
     onScheduleAppointment?: (studentId: string) => void;
-    onNavigateToReport?: () => void;  // เพิ่มบรรทัดนี้
+    onNavigateToReport?: () => void;
+    onApproveWaiting?: (studentId: string) => void;  // ✅ ปุ่มยืนยัน waiting
     systemStats?: SystemStats;
 }
 
@@ -65,6 +66,7 @@ export function CounselorDashboard({
     systemStats = MOCK_SYSTEM_STATS,
     onScheduleAppointment,
     onNavigateToReport,
+    onApproveWaiting,
 }: CounselorDashboardProps) {
     const [generatedToken, setGeneratedToken] = useState<string>("");
     const [copiedToken, setCopiedToken] = useState(false);
@@ -98,69 +100,54 @@ export function CounselorDashboard({
     const allToken = initialUnusedToken || mockallToken;
     const totalCasesCount = initialTotalCount !== undefined ? initialTotalCount : 128;
 
+    // สุ่ม token รูปแบบ TK-XXXXXX (ตัวอักษร+ตัวเลข 6 หลัก)
+    const generateRandomToken = (): string => {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // ตัด 0,O,1,I ที่สับสนออก
+        let result = 'TK-';
+        for (let i = 0; i < 6; i++) {
+            result += chars[Math.floor(Math.random() * chars.length)];
+        }
+        return result;
+    };
+
+    // สุ่ม token ใหม่ (ยังไม่เข้า DB)
     const handleGenerateToken = () => {
-        const isValid = validateTokenBE(token);
-
-        if (!isValid) {
-            setError("รหัสไม่ถูกต้อง หรือปี พ.ศ. ไม่ตรง");
-            setGeneratedToken("");
-            return;
+        let newTk = generateRandomToken();
+        // regenerate ถ้าซ้ำ
+        while (tokens.some(t => t.token === newTk)) {
+            newTk = generateRandomToken();
         }
+        setGeneratedToken(newTk);
+        setError(null);
+        setCopiedToken(false);
+    };
 
-        if (isDuplicate(token)) {
-            setError("Token นี้ถูกสร้างไปแล้ว");
-            setGeneratedToken("")
-            return;
-        }
-
-        if (highestToken) {
-            const nextExpected =
-                (parseInt(highestToken.token) + 1).toString().padStart(6, "0");
-
-            if (token !== nextExpected) {
-                setError(`Token ผิดลำดับ`);
-                return;
-            }
-        }
-
-        const newId =
-            tokens.length > 0 ? Math.max(...tokens.map(t => t.id)) + 1 : 1;
-
+    // ยืนยัน → เพิ่มเข้า local state (และส่ง backend ได้ต่อ)
+    const handleConfirmToken = async () => {
+        if (!generatedToken) return;
+        const newId = tokens.length > 0 ? Math.max(...tokens.map(t => t.id)) + 1 : 1;
         const newToken: allToken = {
             id: newId,
-            token: token,
+            token: generatedToken,
             isUsed: false,
             createdAt: new Date()
         };
-
         setTokens(prev => [...prev, newToken]);
-        setError(null);
-        setGeneratedToken(token);
+        setGeneratedToken("");
         setCopiedToken(false);
+        // TODO: ส่ง API เพื่อบันทึกลง DB (backend route: POST /api/cases/generate-token)
     };
 
     const handleCopyToken = () => {
         if (!generatedToken) return;
-
         navigator.clipboard.writeText(generatedToken);
         setCopiedToken(true);
         setTimeout(() => setCopiedToken(false), 2000);
     };
 
-    //เช็คแพทเทิร์นของ input ที่ใส่เข้ามาว่า *เป็นปีตามปัจจุบันหรือไม่ *ครบ 6 ตัวไหม(สำหรับรันนัมเบอร์ 4 ตัว)
-    const validateTokenBE = (token: string) => {
-        const regex = /^\d{6}$/;
-        if (!regex.test(token)) return false;
-
-        const currentYearBE = (new Date().getFullYear() + 543)
-            .toString()
-            .slice(-2);
-
-        return token.slice(0, 2) === currentYearBE;
-    };
-
-    const isDuplicate = (token: string) => {
-        return tokens.some((t) => t.token === token);
+    const handleDeleteToken = (id: number) => {
+        if (!window.confirm('ต้องการลบ token นี้ใช่หรือไม่?')) return;
+        setTokens(prev => prev.filter(t => t.id !== id));
     };
 
 
@@ -283,38 +270,30 @@ export function CounselorDashboard({
                             <Key className="size-5 text-[var(--color-accent-green)]" />
                             <h3 className="font-bold">สร้างรหัสลงทะเบียน (Token)</h3>
                         </div>
-                        <p className="text-sm text-[var(--color-text-secondary)] mb-6">สร้างรหัสเฉพาะสำหรับนักศึกษาใหม่</p>
+                        <p className="text-sm text-[var(--color-text-secondary)] mb-6">สร้างรหัสเฉพาะสำหรับนักศึกษาใหม่ (TK-XXXXXX)</p>
 
-                        {/* input section */}
-                        <input
-                            className='w-full bg-gray-50 border border-dashed border-gray-300 rounded-2xl p-4 mb-4'
-                            type="text"
-                            value={token}
-                            onChange={(e) => {
-                                const value = e.target.value.replace(/\D/g, "");
-                                setToken(value);
-                            }}
-                            maxLength={6}
-                            placeholder="เช่น ปปรรรร โดย ป(ปี) และ ร(รันนัมเบอร์)"
-                        />
-
-                        <button onClick={handleGenerateToken} className="w-full bg-[var(--color-accent-green)] text-white py-3 rounded-2xl hover:opacity-90 transition-opacity mb-4 font-medium">
-                            สร้างรหัสลงทะเบียนใหม่
+                        {/* สุ่ม token */}
+                        <button onClick={handleGenerateToken} className="w-full bg-[var(--color-accent-blue)] text-white py-3 rounded-2xl hover:opacity-90 transition-opacity mb-4 font-medium">
+                            สุ่ม Token ใหม่
                         </button>
 
-                        {/* แจ้งเตือนหากมีการเขียนค่าผิด */}
-                        {error && <p className="text-red-500 mt-4">{error}</p>}
-
                         {generatedToken && (
-                            <div className="bg-gray-50 border border-dashed border-gray-300 rounded-2xl p-4">
-                                <div className="flex items-center gap-2">
-                                    <code className="flex-1 bg-white px-3 py-2 rounded-xl text-sm font-mono break-all border border-gray-100">{generatedToken}</code>
+                            <div className="bg-gray-50 border border-dashed border-gray-300 rounded-2xl p-4 mb-3">
+                                <p className="text-xs text-gray-400 mb-2">Token ที่สุ่มได้ (ยังไม่บันทึก)</p>
+                                <div className="flex items-center gap-2 mb-3">
+                                    <code className="flex-1 bg-white px-3 py-2 rounded-xl text-sm font-mono break-all border border-gray-100 text-green-700 font-bold">{generatedToken}</code>
                                     <button onClick={handleCopyToken} className="p-2 hover:bg-white rounded-xl transition-colors shadow-sm">
                                         {copiedToken ? <CheckCircle className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5 text-[var(--color-accent-blue)]" />}
                                     </button>
                                 </div>
+                                <button onClick={handleConfirmToken} className="w-full bg-[var(--color-accent-green)] text-white py-2.5 rounded-2xl hover:opacity-90 font-bold text-sm">
+                                    ✓ ยืนยัน บันทึก Token นี้
+                                </button>
                             </div>
                         )}
+
+                        {/* แจ้งเตือน */}
+                        {error && <p className="text-red-500 mt-2 text-sm">{error}</p>}
                     </div>
 
                     {/* Token Dashboard */}
@@ -372,11 +351,29 @@ export function CounselorDashboard({
                                     >
                                         <div className="flex items-start justify-between">
                                             <div>
-                                                <p className="font-semibold text-lg text-gray-800">
+                                                <p className="font-semibold text-lg text-gray-800 font-mono">
                                                     {token.token}
                                                 </p>
                                                 <p className="text-sm text-gray-500">{token.createdAt.toLocaleString()}</p>
                                             </div>
+                                            {!token.isUsed && (
+                                                <div className="flex gap-1">
+                                                    <button
+                                                        onClick={() => { navigator.clipboard.writeText(token.token); }}
+                                                        className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                                                        title="คัดลอก"
+                                                    >
+                                                        <Copy className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteToken(token.id)}
+                                                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                        title="ลบ"
+                                                    >
+                                                        <XCircle className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                         {token.isUsed && (
                                             <p className="mt-2 text-sm text-green-700">
@@ -386,12 +383,6 @@ export function CounselorDashboard({
                                     </div>
                                 ))}
                             </div>
-                            {highestToken && (
-                                <div className="p-4 bg-green-50 rounded-xl mt-2">
-                                    <p className="text-sm text-gray-500">Token สูงสุดที่ถูกสร้างมาแล้ว</p>
-                                    <p className="text-lg font-semibold">{highestToken.token}</p>
-                                </div>
-                            )}
                         </div>
                     </div>
 
@@ -450,7 +441,17 @@ export function CounselorDashboard({
                                             <td className="px-4 py-4"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center border border-green-100"><User className="w-4 h-4 text-green-600" /></div><span className="font-medium">{student.name}</span></div></td>
                                             <td className="px-4 py-4 text-[var(--color-text-secondary)]">{student.waitingSince}</td>
                                             <td className="px-4 py-4"><span className={`px-3 py-1 rounded-full text-[11px] font-bold border ${getUrgencyColor(student.urgency)}`}>{getUrgencyLabel(student.urgency)}</span></td>
-                                            <td className="px-4 py-4"><button onClick={() => onScheduleAppointment?.(student.id)} className="text-[var(--color-accent-blue)] font-bold hover:underline">ลงตารางนัดหมาย</button></td>
+                                            <td className="px-4 py-4">
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => onApproveWaiting?.(student.id)}
+                                                        className="px-3 py-1.5 bg-green-500 text-white text-xs font-bold rounded-xl hover:bg-green-600 transition-colors"
+                                                    >
+                                                        ✓ ยืนยัน
+                                                    </button>
+                                                    <button onClick={() => onScheduleAppointment?.(student.id)} className="text-[var(--color-accent-blue)] font-bold hover:underline text-xs">ลงตาราง</button>
+                                                </div>
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>

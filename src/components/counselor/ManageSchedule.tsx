@@ -1,21 +1,28 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Clock, Home, Save, X, Hash, AlertCircle } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock, Home, Save, X, Hash, AlertCircle, User } from 'lucide-react';
 import { API_ENDPOINTS, getAuthHeader } from '../../config/api.config';
 
 export interface TimeBlock {
-    day: string;          // 'จันทร์'...'ศุกร์'
-    time: string;         // '09:00'
-    available: boolean;   // true when status=available OR booked
-    bookedBy?: string;    // student name when booked
+    day: string;
+    time: string;
+    available: boolean;
+    bookedBy?: string;
     caseCode?: string;
-    sessionId?: number;   // needed for cancel
-    date?: string;        // YYYY-MM-DD (for toggle)
-    status?: string;      // "available" | "closed" | "booked"
+    sessionId?: number;
+    date?: string;
+    status?: string;
 }
 
 export interface AvailableRooms {
-    id: string;   // roomId as string
-    name: string; // roomName
+    id: string;
+    name: string;
+}
+
+// ── Counselor option for dropdown ──
+interface CounselorOption {
+    userId: number;
+    firstName: string;
+    lastName: string;
 }
 
 interface ManageScheduleProps {
@@ -36,8 +43,8 @@ function toYYYYMMDD(d: Date) {
 
 function mondayOfWeek(date: Date) {
     const d = new Date(date);
-    const day = d.getDay(); // 0 Sun..6 Sat
-    const diff = (day + 6) % 7; // how many days since Monday
+    const day = d.getDay();
+    const diff = (day + 6) % 7;
     d.setDate(d.getDate() - diff);
     d.setHours(0, 0, 0, 0);
     return d;
@@ -58,7 +65,30 @@ export function ManageSchedule({
     const [newRoomName, setNewRoomName] = useState('');
     const [error, setError] = useState('');
 
+    // ── counselor state ──
+    const [counselors, setCounselors] = useState<CounselorOption[]>([]);
+    const [selectedCounselorId, setSelectedCounselorId] = useState<number | ''>('');
+
     const weekStart = useMemo(() => toYYYYMMDD(mondayOfWeek(currentDate)), [currentDate]);
+
+    // ── Fetch list of counselors for dropdown ──
+    const fetchCounselors = async () => {
+        try {
+            const base = API_ENDPOINTS.USERS.ME.replace('/users/me', '');
+            const res = await fetch(`${base}/users?role=counselor`, { headers: getAuthHeader() });
+            if (!res.ok) return;
+            const data = await res.json();
+            // รองรับ response แบบ array หรือ { users: [...] }
+            const list: any[] = Array.isArray(data) ? data : (data.users || data.counselors || []);
+            setCounselors(list.map((u: any) => ({
+                userId: u.userId,
+                firstName: u.firstName,
+                lastName: u.lastName,
+            })));
+        } catch (e) {
+            console.error('fetchCounselors:', e);
+        }
+    };
 
     const fetchRooms = async () => {
         try {
@@ -66,7 +96,6 @@ export function ManageSchedule({
             if (!res.ok) throw new Error(await res.text());
             const data = await res.json();
             setRooms(data);
-
             if (!selectedRoomId && data.length > 0) {
                 setSelectedRoomId(data[0].id);
             }
@@ -83,7 +112,6 @@ export function ManageSchedule({
             if (!res.ok) throw new Error(await res.text());
 
             const data = await res.json();
-
             const blocks: TimeBlock[] = (data.blocks || []).map((b: any) => ({
                 day: b.day,
                 time: b.time,
@@ -106,6 +134,7 @@ export function ManageSchedule({
 
     useEffect(() => {
         fetchRooms();
+        fetchCounselors();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -146,7 +175,6 @@ export function ManageSchedule({
             if (!res.ok) throw new Error(await res.text());
             await fetchSchedule(selectedRoomId);
         } catch (e: any) {
-            console.error(e);
             alert(e?.message || 'ทำรายการไม่สำเร็จ');
         }
     };
@@ -154,11 +182,9 @@ export function ManageSchedule({
     const handleSlotClick = async (day: string, time: string, block?: TimeBlock) => {
         setError('');
 
-        // booked -> cancel booking
         if (block?.bookedBy && block.sessionId) {
             const ok = window.confirm(`ยกเลิกนัดหมายนี้ใช่หรือไม่?\n${block.bookedBy}\n${block.caseCode ?? ''}`);
             if (!ok) return;
-
             try {
                 const res = await fetch(API_ENDPOINTS.SESSION_PORTAL.CANCEL_BOOKING(block.sessionId), {
                     method: 'POST',
@@ -167,15 +193,12 @@ export function ManageSchedule({
                 if (!res.ok) throw new Error(await res.text());
                 await fetchSchedule(selectedRoomId);
             } catch (e: any) {
-                console.error(e);
                 alert(e?.message || 'ยกเลิกไม่สำเร็จ');
             }
             return;
         }
 
-        // toggle open/close (create if missing)
         try {
-            // compute date for this day based on weekStart
             const dayIndex = days.indexOf(day);
             const d = new Date(`${weekStart}T00:00:00`);
             d.setDate(d.getDate() + (dayIndex >= 0 ? dayIndex : 0));
@@ -184,47 +207,45 @@ export function ManageSchedule({
             const res = await fetch(API_ENDPOINTS.SESSION_PORTAL.TOGGLE_SLOT, {
                 method: 'PUT',
                 headers: getAuthHeader(),
-                body: JSON.stringify({
-                    roomId: Number(selectedRoomId),
-                    date: dateStr,
-                    time,
-                }),
+                body: JSON.stringify({ roomId: Number(selectedRoomId), date: dateStr, time }),
             });
 
             if (!res.ok) throw new Error(await res.text());
             await fetchSchedule(selectedRoomId);
         } catch (e: any) {
-            console.error(e);
             alert(e?.message || 'เปลี่ยนสถานะไม่สำเร็จ');
         }
     };
 
-    // Add room (DB)
+    // ── Add room พร้อม counselorId ──
     const handleAddRoom = async () => {
         const name = newRoomName.trim();
         if (!name) return;
+        setError('');
 
         try {
+            const body: Record<string, any> = { roomName: name };
+            if (selectedCounselorId !== '') body.counselorId = selectedCounselorId;
+
             const res = await fetch(API_ENDPOINTS.SESSION_PORTAL.CREATE_ROOM, {
                 method: 'POST',
                 headers: getAuthHeader(),
-                body: JSON.stringify({ roomName: name }),
+                body: JSON.stringify(body),
             });
 
             if (!res.ok) throw new Error(await res.text());
-            const created = await res.json(); // {id,name}
+            const created = await res.json();
 
             setRooms(prev => [...prev, created]);
             setSelectedRoomId(created.id);
             setNewRoomName('');
+            setSelectedCounselorId('');
             setShowAddRoom(false);
         } catch (e: any) {
-            console.error(e);
             setError(e?.message || 'เพิ่มห้องไม่สำเร็จ');
         }
     };
 
-    // Delete room (DB)
     const handleRemoveRoom = async (roomId: string) => {
         const ok = window.confirm('ต้องการลบห้องนี้ใช่หรือไม่?');
         if (!ok) return;
@@ -238,12 +259,8 @@ export function ManageSchedule({
 
             const updated = rooms.filter(r => r.id !== roomId);
             setRooms(updated);
-
-            if (selectedRoomId === roomId) {
-                setSelectedRoomId(updated[0]?.id || '');
-            }
+            if (selectedRoomId === roomId) setSelectedRoomId(updated[0]?.id || '');
         } catch (e: any) {
-            console.error(e);
             setError(e?.message || 'ลบห้องไม่สำเร็จ');
         }
     };
@@ -265,6 +282,7 @@ export function ManageSchedule({
             </header>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
+                {/* ── Room panel ── */}
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
                     <div className="flex items-center gap-3 mb-4 text-[var(--color-accent-blue)]">
                         <Home className="w-5 h-5" />
@@ -277,9 +295,7 @@ export function ManageSchedule({
                         className="w-full p-3 rounded-xl border border-gray-300 bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500"
                     >
                         {rooms.map((room) => (
-                            <option key={room.id} value={room.id}>
-                                {room.name}
-                            </option>
+                            <option key={room.id} value={room.id}>{room.name}</option>
                         ))}
                     </select>
 
@@ -298,18 +314,44 @@ export function ManageSchedule({
                         </button>
                     </div>
 
+                    {/* ── Add room form ── */}
                     {showAddRoom && (
-                        <div className="mb-4 p-4 bg-gray-50 rounded-xl space-y-3 mt-4">
+                        <div className="p-4 bg-gray-50 rounded-xl space-y-3 mt-4">
                             <p className="text-sm text-gray-600 font-medium">กรอกชื่อห้องใหม่:</p>
+
                             <input
                                 type="text"
                                 value={newRoomName}
                                 onChange={(e) => setNewRoomName(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleAddRoom()}
-                                placeholder="ชื่อห้อง"
+                                placeholder="ชื่อห้อง เช่น ห้อง 1"
                                 autoFocus
                                 className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-blue-500"
                             />
+
+                            {/* ── Counselor selector ── */}
+                            <div>
+                                <label className="flex items-center gap-1.5 text-sm font-medium text-gray-600 mb-1.5">
+                                    <User className="w-4 h-4" />
+                                    Counselor เจ้าของห้อง
+                                </label>
+                                <select
+                                    value={selectedCounselorId}
+                                    onChange={(e) => setSelectedCounselorId(e.target.value === '' ? '' : Number(e.target.value))}
+                                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:border-blue-500"
+                                >
+                                    <option value="">-- ไม่ระบุ --</option>
+                                    {counselors.map((c) => (
+                                        <option key={c.userId} value={c.userId}>
+                                            {c.firstName} {c.lastName}
+                                        </option>
+                                    ))}
+                                </select>
+                                {counselors.length === 0 && (
+                                    <p className="text-xs text-gray-400 mt-1">ไม่พบ counselor ในระบบ</p>
+                                )}
+                            </div>
+
                             <div className="flex gap-2">
                                 <button
                                     onClick={handleAddRoom}
@@ -319,7 +361,7 @@ export function ManageSchedule({
                                     บันทึก
                                 </button>
                                 <button
-                                    onClick={() => { setShowAddRoom(false); setNewRoomName(''); }}
+                                    onClick={() => { setShowAddRoom(false); setNewRoomName(''); setSelectedCounselorId(''); }}
                                     className="flex-1 px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg font-medium transition-colors"
                                 >
                                     ยกเลิก
@@ -328,15 +370,13 @@ export function ManageSchedule({
                         </div>
                     )}
 
+                    {/* ── Delete room list ── */}
                     {showDeleteRoom && (
-                        <div className="mb-4 p-4 bg-gray-50 rounded-xl space-y-3 mt-4">
+                        <div className="p-4 bg-gray-50 rounded-xl space-y-3 mt-4">
                             <p className="text-sm text-gray-600 font-medium">เลือกห้องที่ต้องการลบ:</p>
                             <div className="space-y-2">
                                 {rooms.map((room) => (
-                                    <div
-                                        key={room.id}
-                                        className="flex items-center justify-between px-4 py-3 bg-white rounded-lg border border-gray-200"
-                                    >
+                                    <div key={room.id} className="flex items-center justify-between px-4 py-3 bg-white rounded-lg border border-gray-200">
                                         <span className="text-gray-700">{room.name}</span>
                                         <button
                                             onClick={() => handleRemoveRoom(room.id)}
@@ -364,6 +404,7 @@ export function ManageSchedule({
                     )}
                 </div>
 
+                {/* ── Week navigator ── */}
                 <div className="lg:col-span-3 bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)] flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Calendar className="w-6 h-6 text-[var(--color-accent-blue)]" />
@@ -380,6 +421,7 @@ export function ManageSchedule({
                 </div>
             </div>
 
+            {/* Legend */}
             <div className="bg-white rounded-3xl p-4 shadow-sm mb-6 flex flex-wrap gap-6 px-8 border border-[var(--color-border)]">
                 <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded bg-green-50 border border-green-500"></div>
@@ -395,6 +437,7 @@ export function ManageSchedule({
                 </div>
             </div>
 
+            {/* Schedule grid */}
             <div className="bg-white rounded-3xl shadow-sm border border-[var(--color-border)] overflow-hidden">
                 <table className="w-full border-collapse">
                     <thead>
@@ -405,16 +448,13 @@ export function ManageSchedule({
                             ))}
                         </tr>
                     </thead>
-
                     <tbody>
                         {times.map((time) => (
                             <tr key={time} className="border-b border-[var(--color-border)] hover:bg-gray-50/50 transition-colors">
                                 <td className="p-4 text-sm text-gray-500 font-medium">{time} น.</td>
-
                                 {days.map(day => {
                                     const block = displaySchedule.find(b => b.day === day && b.time === time);
 
-                                    // if not exist -> show "+"
                                     if (!block) {
                                         return (
                                             <td key={day} className="p-2">
@@ -431,7 +471,6 @@ export function ManageSchedule({
 
                                     const isBooked = !!block.bookedBy;
                                     const isAvailable = !isBooked && (block.status || '').toLowerCase() === 'available';
-
                                     const statusClass = isBooked
                                         ? 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100 cursor-pointer'
                                         : isAvailable
@@ -450,9 +489,7 @@ export function ManageSchedule({
                                                         <span className="text-xs font-bold">{block.bookedBy}</span>
                                                     </>
                                                 ) : (
-                                                    <span className="text-xs font-medium">
-                                                        {isAvailable ? 'ว่าง' : 'ปิด'}
-                                                    </span>
+                                                    <span className="text-xs font-medium">{isAvailable ? 'ว่าง' : 'ปิด'}</span>
                                                 )}
                                             </button>
                                         </td>

@@ -268,10 +268,15 @@ export default function App() {
         setUserData(data);
         const role = (data.roleName || '').toLowerCase() as UserRole;
         setUserRole(role);
-        if (localStorage.getItem('urgency_submitted') !== 'true') setShowUrgency(true);
-        else if (localStorage.getItem('pdpa_accepted') !== 'true') setShowPDPA(true);
-        else if (localStorage.getItem('token_submitted') !== 'true') setShowToken(true);
-        else if (role) loadInitialData(role);
+        // counselor ไม่ผ่าน urgency/PDPA/token flow → ไป dashboard เลย
+        if (role === 'counselor') {
+          loadInitialData(role);
+        } else {
+          if (localStorage.getItem('urgency_submitted') !== 'true') setShowUrgency(true);
+          else if (localStorage.getItem('pdpa_accepted') !== 'true') setShowPDPA(true);
+          else if (localStorage.getItem('token_submitted') !== 'true') setShowToken(true);
+          else if (role) loadInitialData(role);
+        }
         setAppState('app');
       } else { localStorage.removeItem('token'); setAppState('landing'); }
     } catch (error) { setAppState('error'); setErrorMessage('การเชื่อมต่อล้มเหลว'); }
@@ -403,6 +408,29 @@ export default function App() {
 
     // ── Counselor ──
     if (userRole === 'counselor') {
+
+      // approve waiting → เรียก API PATCH case status
+      const handleApproveWaiting = async (studentId: string) => {
+        try {
+          const res = await fetch(`${API_ENDPOINTS.USERS.ME.replace('/users/me', '')}/cases/${studentId}/appointment-status`, {
+            method: 'PATCH',
+            headers: createHeaders(),
+            body: JSON.stringify({ status: 'active' }),
+          });
+          if (res.ok) fetchCounselorData();
+        } catch (e) { console.error(e); }
+      };
+
+      // fetch report data จาก backend
+      const handleFetchReport = async (from: string, to: string) => {
+        const res = await fetch(
+          `${API_ENDPOINTS.USERS.ME.replace('/users/me', '')}/counselor/api/counselor/report?from=${from}&to=${to}`,
+          { headers: createHeaders() }
+        );
+        if (!res.ok) throw new Error('ดึงข้อมูล report ไม่สำเร็จ');
+        return res.json();
+      };
+
       switch (currentPage) {
         case 'counselor-dashboard': return (
           <CounselorDashboard
@@ -411,6 +439,7 @@ export default function App() {
             totalCasesCount={128}
             onScheduleAppointment={() => setCurrentPage('counselor-schedule')}
             onNavigateToReport={() => setCurrentPage('counselor-report')}
+            onApproveWaiting={handleApproveWaiting}
           />
         );
         case 'counselor-notes': return <CaseNotePage />;
@@ -423,7 +452,7 @@ export default function App() {
           />
         );
         case 'counselor-users': return <CounselorUserManagement />;
-        case 'counselor-report': return <ReportGenerator />;
+        case 'counselor-report': return <ReportGenerator onFetchReportData={handleFetchReport} />;
         default: return (
           <CounselorDashboard
             waitingStudents={waitingClients.length > 0 ? waitingClients : undefined}
@@ -431,6 +460,7 @@ export default function App() {
             totalCasesCount={128}
             onScheduleAppointment={() => setCurrentPage('counselor-schedule')}
             onNavigateToReport={() => setCurrentPage('counselor-report')}
+            onApproveWaiting={handleApproveWaiting}
           />
         );
       }

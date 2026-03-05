@@ -29,6 +29,7 @@ interface BookingPageProps {
 }
 
 type CounselorRoom = {
+    counselorName?: string | null; // ชื่อ counselor (mock ก่อน จาก backend ทีหลัง)
     roomId: number;
     roomName: string; // shown in UI (e.g., "พี่ป๊อป (ห้อง 1)")
     counselorEmail: string | null;
@@ -225,8 +226,9 @@ export function BookingPage({
     });
 
     const handleBooking = async () => {
-        if (studentInfo.studentId.length !== 9) {
-            alert('รหัสประจำตัวต้องมี 9 หลัก');
+        // studentId optional (รองรับบุคลากรที่ไม่มีรหัส นศ.)
+        if (studentInfo.studentId && studentInfo.studentId.length !== 9) {
+            alert('รหัสประจำตัวต้องมี 9 หลัก (หรือเว้นว่างได้)');
             return;
         }
         if (studentInfo.phone.length !== 10) {
@@ -376,18 +378,25 @@ export function BookingPage({
                 </h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {counselors.map((name) => (
+                    {counselorRooms.map((room) => (
                         <button
-                            key={name}
-                            onClick={() => setSelectedCounselor(name)}
-                            className={`p-6 rounded-[2rem] border-2 transition-all text-left flex items-center justify-between ${selectedCounselor === name
+                            key={room.roomName}
+                            onClick={() => setSelectedCounselor(room.roomName)}
+                            className={`p-6 rounded-[2rem] border-2 transition-all text-left flex items-center justify-between ${selectedCounselor === room.roomName
                                 ? 'border-green-500 bg-green-50 shadow-md shadow-green-100'
                                 : 'border-white bg-white hover:border-gray-200 shadow-sm'
                                 }`}
                         >
-                            <p className={`font-bold text-lg ${selectedCounselor === name ? 'text-green-800' : 'text-gray-700'}`}>{name}</p>
-                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${selectedCounselor === name ? 'border-green-500 bg-green-500' : 'border-gray-200'}`}>
-                                {selectedCounselor === name && <div className="w-2 h-2 bg-white rounded-full" />}
+                            <div>
+                                <p className={`font-bold text-lg ${selectedCounselor === room.roomName ? 'text-green-800' : 'text-gray-700'}`}>
+                                    {room.counselorName || 'ผู้ให้คำปรึกษา'}
+                                </p>
+                                <p className={`text-sm mt-0.5 ${selectedCounselor === room.roomName ? 'text-green-600' : 'text-gray-400'}`}>
+                                    {room.roomName}
+                                </p>
+                            </div>
+                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${selectedCounselor === room.roomName ? 'border-green-500 bg-green-500' : 'border-gray-200'}`}>
+                                {selectedCounselor === room.roomName && <div className="w-2 h-2 bg-white rounded-full" />}
                             </div>
                         </button>
                     ))}
@@ -514,7 +523,7 @@ export function BookingPage({
 
                             <div className="relative">
                                 <label className="flex items-center gap-2 text-xs font-black text-gray-400 mb-2 uppercase tracking-tighter">
-                                    รหัสประจำตัว *
+                                    รหัสประจำตัว (ไม่บังคับสำหรับบุคลากร)
                                 </label>
                                 <div className="relative">
                                     <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
