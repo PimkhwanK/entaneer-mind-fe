@@ -12,6 +12,7 @@ interface Appointment {
 
     // raw
     timeStartISO?: string | null;
+    sessionToken?: string;
 }
 
 interface ClientHistoryProps {
@@ -60,6 +61,7 @@ export function ClientHistory({ appointments: initialAppointments = [], onCancel
                     status: a.status,
                     notes: a.notes || '—',
                     timeStartISO: iso,
+                    sessionToken: a.sessionToken || '—',
                 };
             });
 
@@ -187,6 +189,7 @@ export function ClientHistory({ appointments: initialAppointments = [], onCancel
                                 </th>
                                 <th className="px-6 py-4 text-left">Status</th>
                                 <th className="px-6 py-4 text-left">Notes</th>
+                                <th className="px-6 py-4 text-left">Session Token</th>
                                 <th className="px-6 py-4 text-center">Action</th>
                             </tr>
                         </thead>
@@ -194,13 +197,13 @@ export function ClientHistory({ appointments: initialAppointments = [], onCancel
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
+                                    <td colSpan={7} className="px-6 py-12 text-center text-gray-400">
                                         กำลังโหลดข้อมูล...
                                     </td>
                                 </tr>
                             ) : filteredAppointments.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center">
+                                    <td colSpan={7} className="px-6 py-12 text-center">
                                         <Calendar className="w-12 h-12 mx-auto mb-3 text-[var(--color-border)]" />
                                         <p>No sessions found</p>
                                         <p className="text-sm text-[var(--color-text-secondary)] mt-1">
@@ -231,6 +234,9 @@ export function ClientHistory({ appointments: initialAppointments = [], onCancel
                                         </td>
                                         <td className="px-6 py-4 text-[var(--color-text-secondary)] max-w-xs truncate">
                                             {apt.notes || '—'}
+                                        </td>
+                                        <td className="px-6 py-4 text-[var(--color-text-secondary)] font-mono">
+                                            {apt.sessionToken || '—'}
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             {apt.status === 'upcoming' && (
