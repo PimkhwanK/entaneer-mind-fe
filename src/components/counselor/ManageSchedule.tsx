@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Clock, Home, Save, X, Hash, AlertCircle, User } from 'lucide-react';
-import { API_ENDPOINTS, getAuthHeader } from '../../config/api.config';
+import { API_ENDPOINTS, API_BASE_URL, getAuthHeader } from '../../config/api.config';
 
 export interface TimeBlock {
     day: string;
@@ -74,12 +74,11 @@ export function ManageSchedule({
     // ── Fetch list of counselors for dropdown ──
     const fetchCounselors = async () => {
         try {
-            const base = API_ENDPOINTS.USERS.ME.replace('/users/me', '');
-            const res = await fetch(`${base}/users?role=counselor`, { headers: getAuthHeader() });
+            const res = await fetch(`${API_BASE_URL}/counselor/counselors`, { headers: getAuthHeader() });
             if (!res.ok) return;
             const data = await res.json();
-            // รองรับ response แบบ array หรือ { users: [...] }
-            const list: any[] = Array.isArray(data) ? data : (data.users || data.counselors || []);
+            // Backend returns { success, data: { counselors: [...] } } or array
+            const list: any[] = Array.isArray(data) ? data : (data.data?.counselors ?? data.counselors ?? []);
             setCounselors(list.map((u: any) => ({
                 userId: u.userId,
                 firstName: u.firstName,

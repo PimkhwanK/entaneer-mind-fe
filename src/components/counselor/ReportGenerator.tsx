@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { API_BASE_URL, getAuthHeader } from '../../config/api.config';
 import {
     FileText, Calendar, Download, BarChart3, Users, Clock,
     TrendingUp, CheckCircle, AlertCircle, Loader2
@@ -22,46 +23,6 @@ interface ReportData {
 
 interface ReportGeneratorProps {
     onFetchReportData?: (from: string, to: string) => Promise<ReportData>;
-}
-
-// ── Mockup data generator ──────────────────────────────────────
-function generateMockReport(from: string, to: string): ReportData {
-    return {
-        period: { from, to },
-        summary: {
-            totalSessions: 147,
-            completedSessions: 128,
-            cancelledSessions: 19,
-            newClients: 34,
-            averageWaitDays: 2,
-        },
-        topTags: [
-            { tag: 'Academic Stress', count: 52 },
-            { tag: 'Anxiety', count: 38 },
-            { tag: 'Relationship Issues', count: 27 },
-            { tag: 'Depression', count: 18 },
-            { tag: 'Financial Issues', count: 12 },
-        ],
-        byDepartment: [
-            { department: 'วิศวกรรมคอมพิวเตอร์', count: 41 },
-            { department: 'วิศวกรรมไฟฟ้า', count: 28 },
-            { department: 'วิศวกรรมโยธา', count: 22 },
-            { department: 'วิศวกรรมอุตสาหการ', count: 18 },
-            { department: 'วิศวกรรมเครื่องกล', count: 15 },
-            { department: 'อื่นๆ', count: 23 },
-        ],
-        counselorWorkload: [
-            { name: 'พี่ป๊อป', sessions: 68 },
-            { name: 'พี่น้ำขิง', sessions: 45 },
-            { name: 'พี่วิภาดา', sessions: 34 },
-        ],
-        monthlySessions: [
-            { month: 'ต.ค.', count: 32 },
-            { month: 'พ.ย.', count: 45 },
-            { month: 'ธ.ค.', count: 28 },
-            { month: 'ม.ค.', count: 42 },
-        ],
-    };
 }
 
 // ── PDF Generator (Client-side via HTML + window.print) ────────
@@ -277,6 +238,22 @@ export function ReportGenerator({ onFetchReportData }: ReportGeneratorProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
+    // const handlePreview = async () => {
+    //     if (!fromDate || !toDate) { setError('กรุณาเลือกช่วงวันที่'); return; }
+    //     if (fromDate > toDate) { setError('วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด'); return; }
+    //     setError('');
+    //     setIsLoading(true);
+    //     try {
+    //         const data = onFetchReportData
+    //             ? await onFetchReportData(fromDate, toDate)
+    //             : generateMockReport(fromDate, toDate);
+    //         setReportData(data);
+    //     } catch {
+    //         setError('ไม่สามารถดึงข้อมูลได้ กรุณาลองใหม่');
+    //     } finally {
+    //         setIsLoading(false);
+    //     }
+    // };
     const handlePreview = async () => {
         if (!fromDate || !toDate) { setError('กรุณาเลือกช่วงวันที่'); return; }
         if (fromDate > toDate) { setError('วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด'); return; }
@@ -285,7 +262,38 @@ export function ReportGenerator({ onFetchReportData }: ReportGeneratorProps) {
         try {
             const data = onFetchReportData
                 ? await onFetchReportData(fromDate, toDate)
-                : generateMockReport(fromDate, toDate);
+                : await (async () => {
+                    const res = await fetch(`${API_BASE_URL}/counselor/report?startDate=${fromDate}&endDate=${toDate}`, {
+                        headers: getAuthHeader()
+                    });
+                    if (!res.ok) throw new Error(`Failed to fetch report (${res.status})`);
+                    const json = await res.json();
+                    const d = json.data;
+
+                    // Map backend format → ReportData interface
+                    // Backend: { caseStats, sessionStats, userStats, topProblemTags, counselorStats, reportPeriod }
+                    const mapped: ReportData = {
+                        period: { from: fromDate, to: toDate },
+                        summary: {
+                            totalSessions: d.sessionStats?.total ?? 0,
+                            completedSessions: d.sessionStats?.byStatus?.completed ?? 0,
+                            cancelledSessions: d.sessionStats?.byStatus?.cancelled ?? 0,
+                            newClients: d.userStats?.byRole?.client ?? 0,
+                            averageWaitDays: d.caseStats?.byStatus?.waiting_confirmation ?? 0,
+                        },
+                        topTags: (d.topProblemTags ?? []).map((t: any) => ({
+                            tag: t.label,
+                            count: t.count,
+                        })),
+                        byDepartment: [],  // backend ไม่ได้ส่ง department breakdown
+                        counselorWorkload: (d.counselorStats ?? []).map((c: any) => ({
+                            name: c.name,
+                            sessions: c.sessionsCreated ?? 0,
+                        })),
+                        monthlySessions: [],  // backend ไม่ได้ส่ง monthly breakdown
+                    };
+                    return mapped;
+                })();
             setReportData(data);
         } catch {
             setError('ไม่สามารถดึงข้อมูลได้ กรุณาลองใหม่');

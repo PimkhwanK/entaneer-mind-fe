@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Calendar, Clock, User, Users, Key, Copy, CheckCircle, AlertCircle, BarChart3, Activity, TrendingUp, ArrowUpRight, FileText, XCircle } from 'lucide-react';
+import { API_ENDPOINTS, API_BASE_URL, getAuthHeader } from '../../config/api.config';
+import { Calendar, Clock, User, Users, Key, Copy, CheckCircle, AlertCircle, BarChart3, Activity, TrendingUp, ArrowUpRight, FileText } from 'lucide-react';
 export interface WaitingStudent {
     id: string;
     name: string;
@@ -29,8 +30,8 @@ interface CounselorDashboardProps {
     allToken?: allToken[];
     totalCasesCount?: number;
     onScheduleAppointment?: (studentId: string) => void;
+    onApproveWaiting?: (studentId: string) => void;
     onNavigateToReport?: () => void;
-    onApproveWaiting?: (studentId: string) => void;  // ✅ ปุ่มยืนยัน waiting
     systemStats?: SystemStats;
 }
 
@@ -65,11 +66,13 @@ export function CounselorDashboard({
     totalCasesCount: initialTotalCount,
     systemStats = MOCK_SYSTEM_STATS,
     onScheduleAppointment,
-    onNavigateToReport,
     onApproveWaiting,
+    onNavigateToReport,
 }: CounselorDashboardProps) {
     const [generatedToken, setGeneratedToken] = useState<string>("");
     const [copiedToken, setCopiedToken] = useState(false);
+    const [tokenListLoading, setTokenListLoading] = useState(true);
+    const [tokenListError, setTokenListError] = useState<string | null>(null);
 
     //สร้าง local token ก่อนส่ง Api
     const [token, setToken] = useState<string>("");
@@ -94,67 +97,189 @@ export function CounselorDashboard({
         { id: 3, token: "690003", isUsed: false, usedAt: undefined, createdAt: new Date() },
     ];
 
-    // เลือกใช้ข้อมูลจาก Props หรือ Mockup
-    const waitingStudents = initialWaitingStudents || mockWaitingStudents;
-    const todayAppointments = initialTodayAppointments || mockTodayAppointments;
-    const allToken = initialUnusedToken || mockallToken;
-    const totalCasesCount = initialTotalCount !== undefined ? initialTotalCount : 128;
+    // (Props kept for backward compatibility but data is now API-driven)
 
-    // สุ่ม token รูปแบบ TK-XXXXXX (ตัวอักษร+ตัวเลข 6 หลัก)
-    const generateRandomToken = (): string => {
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // ตัด 0,O,1,I ที่สับสนออก
-        let result = 'TK-';
-        for (let i = 0; i < 6; i++) {
-            result += chars[Math.floor(Math.random() * chars.length)];
-        }
-        return result;
-    };
+    // API-backed state
+    const [todayAppointmentsData, setTodayAppointmentsData] = useState<TodayAppointment[]>([]);
+    const [waitingStudentsData, setWaitingStudentsData] = useState<WaitingStudent[]>([]);
+    const [totalCasesData, setTotalCasesData] = useState<number>(0);
+    const [systemStatsData, setSystemStatsData] = useState<SystemStats>(systemStats);
 
-    // สุ่ม token ใหม่ (ยังไม่เข้า DB)
+    // Fetch schedule for today -> derive todayAppointments, waitingStudents, totalCases
+    React.useEffect(() => {
+        const today = new Date().toISOString().split('T')[0];
+        fetch(`${API_BASE_URL}/counselor/schedule?startDate=${today}&endDate=${today}`, {
+            headers: getAuthHeader()
+        })
+            .then(res => res.ok ? res.json() : null)
+            .then(json => {
+                if (!json?.data?.sessions) return;
+                const sessions = json.data.sessions;
+
+                const mapped: TodayAppointment[] = sessions
+                    .filter((s: any) => ['booked', 'completed', 'available'].includes(s.status))
+                    .map((s: any) => ({
+                        id: String(s.sessionId),
+                        time: s.timeStart
+                            ? new Date(s.timeStart).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+                            : '-',
+                        studentName: s.case?.client?.name ?? '-',
+                        status: s.status === 'completed' ? 'completed' : 'pending',
+                        caseCode: s.case ? `CASE-${s.case.caseId}` : '-'
+                    }));
+                setTodayAppointmentsData(mapped);
+
+                const waiting: WaitingStudent[] = sessions
+                    .filter((s: any) => s.status === 'booked' && s.case)
+                    .map((s: any) => ({
+                        id: String(s.case.caseId),
+                        name: s.case.client?.name ?? '-',
+                        waitingSince: s.timeStart
+                            ? new Date(s.timeStart).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+                            : '-',
+                        urgency: s.case.priority === 'high' ? 'high' : s.case.priority === 'low' ? 'low' : 'medium'
+                    }));
+                setWaitingStudentsData(waiting);
+
+                const stats = json.data.stats;
+                setTotalCasesData((stats.booked ?? 0) + (stats.completed ?? 0));
+            })
+            .catch(() => { });
+    }, []);
+
+    // Fetch report for system stats (current month)
+    React.useEffect(() => {
+        const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+            .toISOString().split('T')[0];
+        const today = new Date().toISOString().split('T')[0];
+
+        fetch(`${API_BASE_URL}/counselor/report?startDate=${firstOfMonth}&endDate=${today}`, {
+            headers: getAuthHeader()
+        })
+            .then(res => res.ok ? res.json() : null)
+            .then(json => {
+                if (!json?.data) return;
+                const d = json.data;
+                // Backend format: { caseStats, sessionStats, userStats, topProblemTags, counselorStats }
+                setSystemStatsData({
+                    activeClients: d.userStats?.byRole?.client ?? 0,
+                    activeCounselors: d.counselorStats?.length ?? 0,
+                    sessionsThisMonth: d.sessionStats?.byStatus?.completed ?? 0,
+                    averageWaitTime: `${d.caseStats?.byStatus?.in_progress ?? 0} active`,
+                    topIssueTags: (d.topProblemTags ?? []).map((t: any) => ({ tag: t.label, count: t.count })),
+                    totalSessions: d.sessionStats?.total ?? 0
+                });
+            })
+            .catch(() => { });
+    }, []);
+
     const handleGenerateToken = () => {
-        let newTk = generateRandomToken();
-        // regenerate ถ้าซ้ำ
-        while (tokens.some(t => t.token === newTk)) {
-            newTk = generateRandomToken();
-        }
-        setGeneratedToken(newTk);
-        setError(null);
-        setCopiedToken(false);
-    };
+        const isValid = validateTokenBE(token);
 
-    // ยืนยัน → เพิ่มเข้า local state (และส่ง backend ได้ต่อ)
-    const handleConfirmToken = async () => {
-        if (!generatedToken) return;
-        const newId = tokens.length > 0 ? Math.max(...tokens.map(t => t.id)) + 1 : 1;
+        if (!isValid) {
+            setError("รหัสไม่ถูกต้อง หรือปี พ.ศ. ไม่ตรง");
+            setGeneratedToken("");
+            return;
+        }
+
+        if (isDuplicate(token)) {
+            setError("Token นี้ถูกสร้างไปแล้ว");
+            setGeneratedToken("")
+            return;
+        }
+
+        if (highestToken) {
+            const nextExpected =
+                (parseInt(highestToken.token) + 1).toString().padStart(6, "0");
+
+            if (token !== nextExpected) {
+                setError(`Token ผิดลำดับ`);
+                return;
+            }
+        }
+
+        const newId =
+            tokens.length > 0 ? Math.max(...tokens.map(t => t.id)) + 1 : 1;
+
         const newToken: allToken = {
             id: newId,
-            token: generatedToken,
+            token: token,
             isUsed: false,
             createdAt: new Date()
         };
+
         setTokens(prev => [...prev, newToken]);
-        setGeneratedToken("");
+        setError(null);
+        setGeneratedToken(token);
         setCopiedToken(false);
-        // TODO: ส่ง API เพื่อบันทึกลง DB (backend route: POST /api/cases/generate-token)
     };
 
     const handleCopyToken = () => {
         if (!generatedToken) return;
+
         navigator.clipboard.writeText(generatedToken);
         setCopiedToken(true);
         setTimeout(() => setCopiedToken(false), 2000);
     };
 
-    const handleDeleteToken = (id: number) => {
-        if (!window.confirm('ต้องการลบ token นี้ใช่หรือไม่?')) return;
-        setTokens(prev => prev.filter(t => t.id !== id));
+    //เช็คแพทเทิร์นของ input ที่ใส่เข้ามาว่า *เป็นปีตามปัจจุบันหรือไม่ *ครบ 6 ตัวไหม(สำหรับรันนัมเบอร์ 4 ตัว)
+    const validateTokenBE = (token: string) => {
+        const regex = /^\d{6}$/;
+        if (!regex.test(token)) return false;
+
+        const currentYearBE = (new Date().getFullYear() + 543)
+            .toString()
+            .slice(-2);
+
+        return token.slice(0, 2) === currentYearBE;
     };
 
+    const isDuplicate = (token: string) => {
+        return tokens.some((t) => t.token === token);
+    };
 
-    // fallback mock ถ้าไม่มี initial
-    const [tokens, setTokens] = useState<allToken[]>(allToken);
+    // Token list state — populated from API
+    const [tokens, setTokens] = useState<allToken[]>(initialUnusedToken || []);
     const [sortAsc, setSortAsc] = useState(true);
     const [filter, setFilter] = useState<"all" | "unused" | "used">("unused");
+
+    React.useEffect(() => {
+        if (initialUnusedToken) {
+            setTokenListLoading(false);
+            return;
+        }
+        const fetchTokens = async () => {
+            setTokenListLoading(true);
+            setTokenListError(null);
+            try {
+                const res = await fetch(`${API_BASE_URL}/counselor/tokens`, {
+                    headers: getAuthHeader()
+                });
+                if (!res.ok) throw new Error(`Failed to fetch tokens (${res.status})`);
+                const json = await res.json();
+                // Backend returns { success, data: { total, tokens: [...] } }
+                const raw: Array<{
+                    id: number;
+                    token: string;
+                    isUsed: boolean;
+                    usedAt?: string;
+                    createdAt: string;
+                }> = json.data?.tokens ?? [];
+                setTokens(raw.map(t => ({
+                    id: t.id,
+                    token: t.token,
+                    isUsed: t.isUsed,
+                    usedAt: t.usedAt ? new Date(t.usedAt) : undefined,
+                    createdAt: new Date(t.createdAt)
+                })));
+            } catch (err) {
+                setTokenListError((err as Error).message);
+            } finally {
+                setTokenListLoading(false);
+            }
+        };
+        fetchTokens();
+    }, [initialUnusedToken]);
 
     // filter
     const filteredTokens = tokens.filter(token => {
@@ -227,7 +352,7 @@ export function CounselorDashboard({
                         </div>
                         <h4 className="font-medium">นัดหมายวันนี้</h4>
                     </div>
-                    <p className="text-3xl font-bold text-[var(--color-text-primary)] ml-13">{todayAppointments.length}</p>
+                    <p className="text-3xl font-bold text-[var(--color-text-primary)] ml-13">{todayAppointmentsData.length}</p>
                 </div>
 
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
@@ -237,7 +362,7 @@ export function CounselorDashboard({
                         </div>
                         <h4 className="font-medium">รอการจัดคิว</h4>
                     </div>
-                    <p className="text-3xl font-bold text-[var(--color-text-primary)] ml-13">{waitingStudents.length}</p>
+                    <p className="text-3xl font-bold text-[var(--color-text-primary)] ml-13">{waitingStudentsData.length}</p>
                 </div>
 
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
@@ -248,7 +373,7 @@ export function CounselorDashboard({
                         <h4 className="font-medium">ปรึกษาเสร็จแล้ว</h4>
                     </div>
                     <p className="text-3xl font-bold text-[var(--color-text-primary)] ml-13">
-                        {todayAppointments.filter(apt => apt.status === 'completed').length}
+                        {todayAppointmentsData.filter(apt => apt.status === 'completed').length}
                     </p>
                 </div>
 
@@ -259,7 +384,7 @@ export function CounselorDashboard({
                         </div>
                         <h4 className="font-medium">เคสทั้งหมด</h4>
                     </div>
-                    <p className="text-3xl font-bold text-[var(--color-text-primary)] ml-13">{totalCasesCount}</p>
+                    <p className="text-3xl font-bold text-[var(--color-text-primary)] ml-13">{totalCasesData}</p>
                 </div>
             </div>
 
@@ -270,30 +395,38 @@ export function CounselorDashboard({
                             <Key className="size-5 text-[var(--color-accent-green)]" />
                             <h3 className="font-bold">สร้างรหัสลงทะเบียน (Token)</h3>
                         </div>
-                        <p className="text-sm text-[var(--color-text-secondary)] mb-6">สร้างรหัสเฉพาะสำหรับนักศึกษาใหม่ (TK-XXXXXX)</p>
+                        <p className="text-sm text-[var(--color-text-secondary)] mb-6">สร้างรหัสเฉพาะสำหรับนักศึกษาใหม่</p>
 
-                        {/* สุ่ม token */}
-                        <button onClick={handleGenerateToken} className="w-full bg-[var(--color-accent-blue)] text-white py-3 rounded-2xl hover:opacity-90 transition-opacity mb-4 font-medium">
-                            สุ่ม Token ใหม่
+                        {/* input section */}
+                        <input
+                            className='w-full bg-gray-50 border border-dashed border-gray-300 rounded-2xl p-4 mb-4'
+                            type="text"
+                            value={token}
+                            onChange={(e) => {
+                                const value = e.target.value.replace(/\D/g, "");
+                                setToken(value);
+                            }}
+                            maxLength={6}
+                            placeholder="เช่น ปปรรรร โดย ป(ปี) และ ร(รันนัมเบอร์)"
+                        />
+
+                        <button onClick={handleGenerateToken} className="w-full bg-[var(--color-accent-green)] text-white py-3 rounded-2xl hover:opacity-90 transition-opacity mb-4 font-medium">
+                            สร้างรหัสลงทะเบียนใหม่
                         </button>
 
+                        {/* แจ้งเตือนหากมีการเขียนค่าผิด */}
+                        {error && <p className="text-red-500 mt-4">{error}</p>}
+
                         {generatedToken && (
-                            <div className="bg-gray-50 border border-dashed border-gray-300 rounded-2xl p-4 mb-3">
-                                <p className="text-xs text-gray-400 mb-2">Token ที่สุ่มได้ (ยังไม่บันทึก)</p>
-                                <div className="flex items-center gap-2 mb-3">
-                                    <code className="flex-1 bg-white px-3 py-2 rounded-xl text-sm font-mono break-all border border-gray-100 text-green-700 font-bold">{generatedToken}</code>
+                            <div className="bg-gray-50 border border-dashed border-gray-300 rounded-2xl p-4">
+                                <div className="flex items-center gap-2">
+                                    <code className="flex-1 bg-white px-3 py-2 rounded-xl text-sm font-mono break-all border border-gray-100">{generatedToken}</code>
                                     <button onClick={handleCopyToken} className="p-2 hover:bg-white rounded-xl transition-colors shadow-sm">
                                         {copiedToken ? <CheckCircle className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5 text-[var(--color-accent-blue)]" />}
                                     </button>
                                 </div>
-                                <button onClick={handleConfirmToken} className="w-full bg-[var(--color-accent-green)] text-white py-2.5 rounded-2xl hover:opacity-90 font-bold text-sm">
-                                    ✓ ยืนยัน บันทึก Token นี้
-                                </button>
                             </div>
                         )}
-
-                        {/* แจ้งเตือน */}
-                        {error && <p className="text-red-500 mt-2 text-sm">{error}</p>}
                     </div>
 
                     {/* Token Dashboard */}
@@ -341,7 +474,13 @@ export function CounselorDashboard({
 
                             {/* Token List - Scrollable */}
                             <div className="max-h-54 overflow-y-auto space-y-3 pr-2">
-                                {sortedTokens.map((token) => (
+                                {tokenListLoading ? (
+                                    <div className="text-center py-8 text-gray-400 text-sm">กำลังโหลด...</div>
+                                ) : tokenListError ? (
+                                    <div className="text-center py-8 text-red-400 text-sm">เกิดข้อผิดพลาด: {tokenListError}</div>
+                                ) : sortedTokens.length === 0 ? (
+                                    <div className="text-center py-8 text-gray-400 text-sm">ไม่พบ Token</div>
+                                ) : sortedTokens.map((token) => (
                                     <div
                                         key={token.id}
                                         className={`p-4 rounded-xl border-2 transition-all ${token.isUsed
@@ -351,29 +490,11 @@ export function CounselorDashboard({
                                     >
                                         <div className="flex items-start justify-between">
                                             <div>
-                                                <p className="font-semibold text-lg text-gray-800 font-mono">
+                                                <p className="font-semibold text-lg text-gray-800">
                                                     {token.token}
                                                 </p>
-                                                <p className="text-sm text-gray-500">{token.createdAt.toLocaleString()}</p>
+                                                <p className="text-sm text-gray-500">{token.usedAt?.toLocaleString() ?? '-'}</p>
                                             </div>
-                                            {!token.isUsed && (
-                                                <div className="flex gap-1">
-                                                    <button
-                                                        onClick={() => { navigator.clipboard.writeText(token.token); }}
-                                                        className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
-                                                        title="คัดลอก"
-                                                    >
-                                                        <Copy className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDeleteToken(token.id)}
-                                                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                                        title="ลบ"
-                                                    >
-                                                        <XCircle className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            )}
                                         </div>
                                         {token.isUsed && (
                                             <p className="mt-2 text-sm text-green-700">
@@ -383,6 +504,12 @@ export function CounselorDashboard({
                                     </div>
                                 ))}
                             </div>
+                            {highestToken && (
+                                <div className="p-4 bg-green-50 rounded-xl mt-2">
+                                    <p className="text-sm text-gray-500">Token สูงสุดที่ถูกสร้างมาแล้ว</p>
+                                    <p className="text-lg font-semibold">{highestToken.token}</p>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -392,14 +519,14 @@ export function CounselorDashboard({
                             <Calendar className="w-5 h-5 text-[var(--color-accent-blue)]" />
                             <h3 className="font-bold">ตารางนัดหมายวันนี้</h3>
                         </div>
-                        {todayAppointments.length === 0 ? (
+                        {todayAppointmentsData.length === 0 ? (
                             <div className="text-center py-12 text-gray-400">
                                 <Clock className="w-12 h-12 mx-auto mb-3 opacity-20" />
                                 <p>ไม่มีตารางนัดหมายในวันนี้</p>
                             </div>
                         ) : (
                             <div className="space-y-3">
-                                {todayAppointments.map((apt) => (
+                                {todayAppointmentsData.map((apt) => (
                                     <div key={apt.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:border-[var(--color-accent-blue)] transition-colors">
                                         <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm"><User className="w-6 h-6 text-gray-400" /></div>
                                         <div className="flex-1">
@@ -422,7 +549,7 @@ export function CounselorDashboard({
 
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
                     <div className="flex items-center gap-2 mb-4"><AlertCircle className="w-5 h-5 text-[var(--color-accent-green)]" /><h3 className="font-bold">นักศึกษาที่รอการจัดคิว</h3></div>
-                    {waitingStudents.length === 0 ? (
+                    {waitingStudentsData.length === 0 ? (
                         <div className="text-center py-12 text-gray-400"><Users className="w-12 h-12 mx-auto mb-3 opacity-20" /><p>ไม่มีนักศึกษารอคิวในขณะนี้</p></div>
                     ) : (
                         <div className="overflow-x-auto">
@@ -436,7 +563,7 @@ export function CounselorDashboard({
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50 text-sm">
-                                    {waitingStudents.map((student) => (
+                                    {waitingStudentsData.map((student) => (
                                         <tr key={student.id} className="hover:bg-gray-50/50 transition-colors">
                                             <td className="px-4 py-4"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center border border-green-100"><User className="w-4 h-4 text-green-600" /></div><span className="font-medium">{student.name}</span></div></td>
                                             <td className="px-4 py-4 text-[var(--color-text-secondary)]">{student.waitingSince}</td>
@@ -445,7 +572,7 @@ export function CounselorDashboard({
                                                 <div className="flex items-center gap-2">
                                                     <button
                                                         onClick={() => onApproveWaiting?.(student.id)}
-                                                        className="px-3 py-1.5 bg-green-500 text-white text-xs font-bold rounded-xl hover:bg-green-600 transition-colors"
+                                                        className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-bold rounded-xl transition-colors"
                                                     >
                                                         ✓ ยืนยัน
                                                     </button>
@@ -481,7 +608,7 @@ export function CounselorDashboard({
                             </div>
                         </div>
                         <p className="text-sm text-gray-500 mb-1 font-medium">นักศึกษาในระบบ</p>
-                        <h2 className="text-3xl font-bold text-gray-800">{systemStats.activeClients}</h2>
+                        <h2 className="text-3xl font-bold text-gray-800">{systemStatsData.activeClients}</h2>
                         <p className="text-xs text-blue-600 mt-2">ผู้ใช้งานทั้งหมดที่ลงทะเบียน</p>
                     </div>
 
@@ -492,7 +619,7 @@ export function CounselorDashboard({
                             </div>
                         </div>
                         <p className="text-sm text-gray-500 mb-1 font-medium">ผู้ให้คำปรึกษา (Active)</p>
-                        <h2 className="text-3xl font-bold text-gray-800">{systemStats.activeCounselors}</h2>
+                        <h2 className="text-3xl font-bold text-gray-800">{systemStatsData.activeCounselors}</h2>
                         <p className="text-xs text-purple-600 mt-2">พร้อมให้บริการในระบบ</p>
                     </div>
 
@@ -503,8 +630,8 @@ export function CounselorDashboard({
                             </div>
                         </div>
                         <p className="text-sm text-gray-500 mb-1 font-medium">นัดหมายเดือนนี้</p>
-                        <h2 className="text-3xl font-bold text-gray-800">{systemStats.sessionsThisMonth}</h2>
-                        <p className="text-xs text-green-600 mt-2">เสร็จสิ้นแล้ว {systemStats.totalSessions} เคสรวม</p>
+                        <h2 className="text-3xl font-bold text-gray-800">{systemStatsData.sessionsThisMonth}</h2>
+                        <p className="text-xs text-green-600 mt-2">เสร็จสิ้นแล้ว {systemStatsData.totalSessions} เคสรวม</p>
                     </div>
                 </div>
 
@@ -517,7 +644,7 @@ export function CounselorDashboard({
                             <h3 className="text-lg font-bold text-gray-800">ปัญหาที่พบบ่อย (Problem Tags)</h3>
                         </div>
                         <div className="space-y-5">
-                            {systemStats.topIssueTags.map((issue, idx) => (
+                            {systemStatsData.topIssueTags.map((issue, idx) => (
                                 <div key={idx}>
                                     <div className="flex items-center justify-between mb-2">
                                         <span className="text-sm font-semibold text-gray-600">{issue.tag}</span>
@@ -527,8 +654,8 @@ export function CounselorDashboard({
                                         <div
                                             className="bg-green-400 h-2.5 rounded-full transition-all duration-1000"
                                             style={{
-                                                width: `${systemStats.totalSessions > 0
-                                                    ? (issue.count / systemStats.totalSessions) * 100
+                                                width: `${systemStatsData.totalSessions > 0
+                                                    ? (issue.count / systemStatsData.totalSessions) * 100
                                                     : 0}%`
                                             }}
                                         />
@@ -544,7 +671,7 @@ export function CounselorDashboard({
                             <h3 className="text-white/80 font-medium mb-4 flex items-center gap-2 text-sm">
                                 <Clock className="w-4 h-4" /> Average Wait Time
                             </h3>
-                            <p className="text-5xl font-bold mb-2">{systemStats.averageWaitTime}</p>
+                            <p className="text-5xl font-bold mb-2">{systemStatsData.averageWaitTime}</p>
                             <p className="text-white/70 text-sm">ระยะเวลารอคิวโดยเฉลี่ยในเดือนนี้</p>
                         </div>
 
@@ -574,19 +701,19 @@ export function CounselorDashboard({
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="text-center p-4 bg-gray-50 rounded-2xl">
-                        <p className="text-2xl font-bold text-gray-800">{systemStats.totalSessions}</p>
+                        <p className="text-2xl font-bold text-gray-800">{systemStatsData.totalSessions}</p>
                         <p className="text-xs text-gray-500 mt-1">เซสชันทั้งหมด</p>
                     </div>
                     <div className="text-center p-4 bg-blue-50 rounded-2xl">
-                        <p className="text-2xl font-bold text-blue-600">{systemStats.sessionsThisMonth}</p>
+                        <p className="text-2xl font-bold text-blue-600">{systemStatsData.sessionsThisMonth}</p>
                         <p className="text-xs text-gray-500 mt-1">เดือนนี้</p>
                     </div>
                     <div className="text-center p-4 bg-green-50 rounded-2xl">
-                        <p className="text-2xl font-bold text-green-600">{systemStats.activeClients}</p>
+                        <p className="text-2xl font-bold text-green-600">{systemStatsData.activeClients}</p>
                         <p className="text-xs text-gray-500 mt-1">ผู้ใช้ระบบ</p>
                     </div>
                     <div className="text-center p-4 bg-purple-50 rounded-2xl">
-                        <p className="text-2xl font-bold text-purple-600">{systemStats.topIssueTags.length}</p>
+                        <p className="text-2xl font-bold text-purple-600">{systemStatsData.topIssueTags.length}</p>
                         <p className="text-xs text-gray-500 mt-1">ประเภทปัญหา</p>
                     </div>
                 </div>

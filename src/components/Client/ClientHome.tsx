@@ -1,21 +1,22 @@
-import React from 'react';
-import { Calendar, Clock, User, Sparkles, Timer, ArrowRight } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Calendar, Clock, User, Sparkles, Timer, ArrowRight, Info } from 'lucide-react';
 
-interface Appointment {
+interface UpcomingAppointment {
     id: string;
     date: string;
     time: string;
     counselor: string;
-    status: 'upcoming' | 'completed' | 'cancelled';
-} 
+}
 
 interface ClientHomeProps {
     onBookSession: () => void;
-    onViewHistory: () => void; // เพิ่ม Prop สำหรับ Link ไปหน้าประวัติ
-    appointments: Appointment[];
+    onViewHistory: () => void;
+    upcomingAppointments: UpcomingAppointment[];
+    completedCount: number;
+    counselorCount: number;
     isWaitingForQueue?: boolean;
-    queuePosition?: number;
     onDebugSkipWaiting?: () => void;
+    hasExistingBooking: boolean;
 }
 
 const dailyQuotes = [
@@ -29,20 +30,17 @@ const dailyQuotes = [
 export function ClientHome({
     onBookSession,
     onViewHistory,
-    appointments: initialAppointments,
+    upcomingAppointments,
+    completedCount,
+    counselorCount,
     isWaitingForQueue = false,
-    queuePosition,
-    onDebugSkipWaiting
+    onDebugSkipWaiting,
+    hasExistingBooking,
 }: ClientHomeProps) {
-    // บังคับให้มี Mockup Data ถ้าข้อมูลที่ส่งมาว่าง (เพื่อให้เห็นข้อมูลโชว์แน่นอน)
-    const appointments: Appointment[] = initialAppointments?.length > 0 ? initialAppointments : [
-        { id: '1', date: '15 ม.ค. 2569', time: '10:00', counselor: 'พี่ป๊อป (ห้อง 1)', status: 'upcoming' },
-        { id: '2', date: '12 ม.ค. 2569', time: '14:30', counselor: 'พี่ป๊อป (ห้อง 1)', status: 'completed' },
-        { id: '3', date: '05 ม.ค. 2569', time: '09:00', counselor: 'พี่น้ำขิง (ห้อง 2)', status: 'completed' }
-    ];
-
-    const todayQuote = dailyQuotes[new Date().getDay() % dailyQuotes.length];
-    const upcomingAppointments = appointments.filter(apt => apt.status === 'upcoming');
+    const todayQuote = useMemo(
+        () => dailyQuotes[new Date().getDay() % dailyQuotes.length],
+        []
+    );
 
     if (isWaitingForQueue) {
         return (
@@ -55,13 +53,9 @@ export function ClientHome({
                     พี่ป๊อปกำลังพิจารณาและจัดสรรผู้ให้คำปรึกษาที่เหมาะสมกับคุณ
                     เราจะแจ้งเตือนคุณผ่านทางหน้าเพจ, เว็บไซต์ และ Google Calendar เมื่อตารางเวลาลงตัว
                 </p>
-
                 <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 max-w-lg mb-8">
-                    <p className="text-amber-800 text-sm italic">
-                        "ระหว่างรอ... อย่าลืมใจดีกับตัวเองให้มากๆ นะครับ"
-                    </p>
+                    <p className="text-amber-800 text-sm italic">"ระหว่างรอ... อย่าลืมใจดีกับตัวเองให้มากๆ นะครับ"</p>
                 </div>
-
                 <button
                     onClick={onDebugSkipWaiting}
                     className="flex items-center gap-2 text-sm text-gray-400 hover:text-[var(--color-accent-blue)] transition-colors"
@@ -93,15 +87,25 @@ export function ClientHome({
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                 <div className="lg:col-span-1">
                     <button
-                        onClick={onBookSession}
-                        className="w-full bg-[var(--color-accent-green)] text-white p-8 rounded-[2rem] hover:opacity-90 transition-all shadow-md hover:shadow-lg flex flex-col items-center justify-center gap-4 group h-full min-h-[250px]"
+                        onClick={hasExistingBooking ? onViewHistory : onBookSession}
+                        className={`w-full p-8 rounded-[2rem] shadow-md flex flex-col items-center justify-center gap-4 group h-full min-h-[250px] transition-all ${hasExistingBooking
+                                ? 'bg-amber-50 border-2 border-amber-200 text-amber-800 hover:bg-amber-100'
+                                : 'bg-[var(--color-accent-green)] text-white hover:opacity-90'
+                            }`}
                     >
-                        <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <Calendar className="w-8 h-8 text-white" />
+                        <div className={`w-16 h-16 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform ${hasExistingBooking ? 'bg-amber-200' : 'bg-white/20'}`}>
+                            {hasExistingBooking
+                                ? <Info className="w-8 h-8 text-amber-600" />
+                                : <Calendar className="w-8 h-8 text-white" />
+                            }
                         </div>
                         <div className="text-center">
-                            <span className="text-xl font-bold block mb-1">จองเวลารับคำปรึกษา</span>
-                            <span className="text-sm opacity-80">นัดหมายต่อเนื่องหรือขอคำปรึกษาใหม่</span>
+                            <span className="text-xl font-bold block mb-1">
+                                {hasExistingBooking ? 'ท่านมีนัดหมายอยู่แล้ว' : 'จองเวลารับคำปรึกษา'}
+                            </span>
+                            <span className={`text-sm ${hasExistingBooking ? 'text-amber-700 font-medium underline' : 'opacity-80'}`}>
+                                {hasExistingBooking ? 'กรุณายกเลิกนัดเดิมที่หน้าประวัติ' : 'นัดหมายต่อเนื่องหรือขอคำปรึกษาใหม่'}
+                            </span>
                         </div>
                     </button>
                 </div>
@@ -109,10 +113,7 @@ export function ClientHome({
                 <div className="lg:col-span-2 bg-white rounded-[2rem] p-8 shadow-sm border border-[var(--color-border)]">
                     <div className="flex items-center justify-between mb-6">
                         <h3 className="text-lg font-bold text-gray-900">การนัดหมายที่กำลังจะมาถึง</h3>
-                        <button
-                            onClick={onViewHistory} // แก้ไขให้กดแล้วไปหน้าประวัติ
-                            className="text-xs text-[var(--color-accent-blue)] font-bold hover:underline"
-                        >
+                        <button onClick={onViewHistory} className="text-xs text-[var(--color-accent-blue)] font-bold hover:underline">
                             ประวัติทั้งหมด
                         </button>
                     </div>
@@ -122,21 +123,20 @@ export function ClientHome({
                             <div className="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <Calendar className="w-8 h-8 text-gray-300" />
                             </div>
-                            <p className="text-gray-400">ไม่มีนัดหมายใหม่ในขณะนี้</p>
+                            <p className="text-gray-400">ไม่มีนัดหมายที่กำลังจะมาถึง</p>
                         </div>
                     ) : (
                         <div className="space-y-4">
                             {upcomingAppointments.map((apt) => (
-                                <div
-                                    key={apt.id}
-                                    className="flex flex-col md:flex-row md:items-center gap-4 p-5 bg-[var(--color-primary-blue)] rounded-2xl border border-blue-50"
-                                >
+                                <div key={apt.id} className="flex flex-col md:flex-row md:items-center gap-4 p-5 bg-[var(--color-primary-blue)] rounded-2xl border border-blue-50">
                                     <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shrink-0">
                                         <User className="w-6 h-6 text-[var(--color-accent-green)]" />
                                     </div>
                                     <div className="flex-1">
-                                        <h4 className="font-bold text-[var(--color-text-primary)]">ผู้ให้คำปรึกษา: {apt.counselor}</h4>
-                                        <div className="flex gap-4 mt-1">
+                                        <h4 className="font-bold text-[var(--color-text-primary)]">
+                                            ผู้ให้คำปรึกษา: {apt.counselor}
+                                        </h4>
+                                        <div className="flex gap-4 mt-1 flex-wrap">
                                             <span className="text-sm text-gray-500 flex items-center gap-1">
                                                 <Calendar className="w-4 h-4" /> {apt.date}
                                             </span>
@@ -163,9 +163,7 @@ export function ClientHome({
                         </div>
                         <div>
                             <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">เซสชันที่เสร็จสิ้น</p>
-                            <p className="text-2xl font-bold text-gray-900">
-                                {appointments.filter(a => a.status === 'completed').length}
-                            </p>
+                            <p className="text-2xl font-bold text-gray-900">{completedCount}</p>
                         </div>
                     </div>
                 </div>
@@ -176,10 +174,8 @@ export function ClientHome({
                             <User className="w-6 h-6 text-purple-600" />
                         </div>
                         <div>
-                            <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">ผู้เชี่ยวชาญที่ดูแลคุณ</p>
-                            <p className="text-2xl font-bold text-gray-900">
-                                {new Set(appointments.map(apt => apt.counselor)).size}
-                            </p>
+                            <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">ผู้เชี่ยวชาญในระบบ</p>
+                            <p className="text-2xl font-bold text-gray-900">{counselorCount}</p>
                         </div>
                     </div>
                 </div>

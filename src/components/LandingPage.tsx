@@ -7,7 +7,7 @@ interface LandingPageProps {
 
 export function LandingPage({ onLoginSuccess }: LandingPageProps) {
     // ✅ คงลิงก์ OAuth เดิมไว้เพื่อให้ Login ได้
-    const CMU_OAUTH_URL = "https://login.microsoftonline.com/cf81f1df-de59-4c29-91da-a2dfd04aa751/oauth2/v2.0/authorize?client_id=3627140d-5cca-4468-8567-874e0c9d1230&response_type=code&redirect_uri=http://localhost:3000/cmuEntraIDCallback&scope=openid%20profile%20email%20offline_access%20User.Read";
+    const CMU_OAUTH_URL = "https://login.microsoftonline.com/cf81f1df-de59-4c29-91da-a2dfd04aa751/oauth2/v2.0/authorize?client_id=3627140d-5cca-4468-8567-874e0c9d1230&response_type=code&redirect_uri=http://localhost:3000/cmuEntraIDCallback&scope=api%3A%2F%2Fcmu%2FMis.Account.Read.Me.Basicinfo%20offline_access";
 
     const handleCMULogin = () => {
         window.location.href = CMU_OAUTH_URL;
