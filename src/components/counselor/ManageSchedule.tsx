@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Clock, Home, Save, X, Hash, AlertCircle, User } from 'lucide-react';
-import { API_ENDPOINTS, API_BASE_URL, getAuthHeader } from '../../config/api.config';
+import { Calendar, ChevronLeft, ChevronRight, Clock, Home, Save, Hash, AlertCircle, User } from 'lucide-react';
+import { API_ENDPOINTS, getAuthHeader } from '../../config/api.config';
 
 export interface TimeBlock {
     day: string;
@@ -16,9 +16,10 @@ export interface TimeBlock {
 export interface AvailableRooms {
     id: string;
     name: string;
+    counselorId?: number | null;
+    roomOwner?: string | null;
 }
 
-// ── Counselor option for dropdown ──
 interface CounselorOption {
     userId: number;
     firstName: string;
@@ -35,7 +36,9 @@ interface ManageScheduleProps {
 const days = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์'];
 const times = ['09:00', '10:00', '11:00', '13:00', '14:00', '15:00'];
 
-function pad2(n: number) { return String(n).padStart(2, '0'); }
+function pad2(n: number) {
+    return String(n).padStart(2, '0');
+}
 
 function toYYYYMMDD(d: Date) {
     return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
@@ -65,25 +68,32 @@ export function ManageSchedule({
     const [newRoomName, setNewRoomName] = useState('');
     const [error, setError] = useState('');
 
-    // ── counselor state ──
     const [counselors, setCounselors] = useState<CounselorOption[]>([]);
     const [selectedCounselorId, setSelectedCounselorId] = useState<number | ''>('');
 
     const weekStart = useMemo(() => toYYYYMMDD(mondayOfWeek(currentDate)), [currentDate]);
+    const selectedRoom = useMemo(
+        () => rooms.find((r) => r.id === selectedRoomId),
+        [rooms, selectedRoomId]
+    );
 
-    // ── Fetch list of counselors for dropdown ──
     const fetchCounselors = async () => {
         try {
-            const res = await fetch(`${API_BASE_URL}/counselor/counselors`, { headers: getAuthHeader() });
+            const base = API_ENDPOINTS.USERS.ME.replace('/users/me', '');
+            const res = await fetch(`${base}/users?role=counselor`, {
+                headers: getAuthHeader(),
+            });
             if (!res.ok) return;
+
             const data = await res.json();
-            // Backend returns { success, data: { counselors: [...] } } or array
-            const list: any[] = Array.isArray(data) ? data : (data.data?.counselors ?? data.counselors ?? []);
-            setCounselors(list.map((u: any) => ({
-                userId: u.userId,
-                firstName: u.firstName,
-                lastName: u.lastName,
-            })));
+            const list: any[] = Array.isArray(data) ? data : (data.users || data.counselors || []);
+            setCounselors(
+                list.map((u: any) => ({
+                    userId: u.userId,
+                    firstName: u.firstName,
+                    lastName: u.lastName,
+                }))
+            );
         } catch (e) {
             console.error('fetchCounselors:', e);
         }
@@ -91,10 +101,14 @@ export function ManageSchedule({
 
     const fetchRooms = async () => {
         try {
-            const res = await fetch(API_ENDPOINTS.SESSION_PORTAL.ROOMS, { headers: getAuthHeader() });
+            const res = await fetch(API_ENDPOINTS.SESSION_PORTAL.ROOMS, {
+                headers: getAuthHeader(),
+            });
             if (!res.ok) throw new Error(await res.text());
+
             const data = await res.json();
             setRooms(data);
+
             if (!selectedRoomId && data.length > 0) {
                 setSelectedRoomId(data[0].id);
             }
@@ -111,6 +125,7 @@ export function ManageSchedule({
             if (!res.ok) throw new Error(await res.text());
 
             const data = await res.json();
+
             const blocks: TimeBlock[] = (data.blocks || []).map((b: any) => ({
                 day: b.day,
                 time: b.time,
@@ -124,6 +139,16 @@ export function ManageSchedule({
 
             setLocalSchedule(blocks);
             onScheduleChange(blocks);
+
+            if (data.roomOwner !== undefined) {
+                setRooms((prev) =>
+                    prev.map((room) =>
+                        room.id === String(roomId)
+                            ? { ...room, roomOwner: data.roomOwner, counselorId: data.counselorId }
+                            : room
+                    )
+                );
+            }
         } catch (e) {
             console.error(e);
             setLocalSchedule([]);
@@ -148,7 +173,15 @@ export function ManageSchedule({
         const start = mondayOfWeek(date);
         const end = new Date(start);
         end.setDate(start.getDate() + 4);
-        return `${start.toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('th-TH', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+
+        return `${start.toLocaleDateString('th-TH', {
+            month: 'short',
+            day: 'numeric'
+        })} - ${end.toLocaleDateString('th-TH', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        })}`;
     };
 
     const handlePrevWeek = () => {
@@ -165,12 +198,18 @@ export function ManageSchedule({
 
     const handleToggleAll = async (makeAvailable: boolean) => {
         if (!selectedRoomId) return;
+
         try {
             const res = await fetch(API_ENDPOINTS.SESSION_PORTAL.BULK_WEEK, {
                 method: 'PUT',
                 headers: getAuthHeader(),
-                body: JSON.stringify({ roomId: Number(selectedRoomId), weekStart, makeAvailable }),
+                body: JSON.stringify({
+                    roomId: Number(selectedRoomId),
+                    weekStart,
+                    makeAvailable,
+                }),
             });
+
             if (!res.ok) throw new Error(await res.text());
             await fetchSchedule(selectedRoomId);
         } catch (e: any) {
@@ -182,13 +221,20 @@ export function ManageSchedule({
         setError('');
 
         if (block?.bookedBy && block.sessionId) {
-            const ok = window.confirm(`ยกเลิกนัดหมายนี้ใช่หรือไม่?\n${block.bookedBy}\n${block.caseCode ?? ''}`);
+            const ok = window.confirm(
+                `ยกเลิกนัดหมายนี้ใช่หรือไม่?\n${block.bookedBy}\n${block.caseCode ?? ''}`
+            );
             if (!ok) return;
+
             try {
-                const res = await fetch(API_ENDPOINTS.SESSION_PORTAL.CANCEL_BOOKING(block.sessionId), {
-                    method: 'POST',
-                    headers: getAuthHeader(),
-                });
+                const res = await fetch(
+                    API_ENDPOINTS.SESSION_PORTAL.CANCEL_BOOKING(block.sessionId),
+                    {
+                        method: 'POST',
+                        headers: getAuthHeader(),
+                    }
+                );
+
                 if (!res.ok) throw new Error(await res.text());
                 await fetchSchedule(selectedRoomId);
             } catch (e: any) {
@@ -206,7 +252,11 @@ export function ManageSchedule({
             const res = await fetch(API_ENDPOINTS.SESSION_PORTAL.TOGGLE_SLOT, {
                 method: 'PUT',
                 headers: getAuthHeader(),
-                body: JSON.stringify({ roomId: Number(selectedRoomId), date: dateStr, time }),
+                body: JSON.stringify({
+                    roomId: Number(selectedRoomId),
+                    date: dateStr,
+                    time,
+                }),
             });
 
             if (!res.ok) throw new Error(await res.text());
@@ -216,7 +266,6 @@ export function ManageSchedule({
         }
     };
 
-    // ── Add room พร้อม counselorId ──
     const handleAddRoom = async () => {
         const name = newRoomName.trim();
         if (!name) return;
@@ -235,7 +284,7 @@ export function ManageSchedule({
             if (!res.ok) throw new Error(await res.text());
             const created = await res.json();
 
-            setRooms(prev => [...prev, created]);
+            setRooms((prev) => [...prev, created]);
             setSelectedRoomId(created.id);
             setNewRoomName('');
             setSelectedCounselorId('');
@@ -254,9 +303,10 @@ export function ManageSchedule({
                 method: 'DELETE',
                 headers: getAuthHeader(),
             });
+
             if (!res.ok) throw new Error(await res.text());
 
-            const updated = rooms.filter(r => r.id !== roomId);
+            const updated = rooms.filter((r) => r.id !== roomId);
             setRooms(updated);
             if (selectedRoomId === roomId) setSelectedRoomId(updated[0]?.id || '');
         } catch (e: any) {
@@ -268,8 +318,12 @@ export function ManageSchedule({
         <div className="p-8 max-w-7xl mx-auto font-sans">
             <header className="mb-8 flex justify-between items-end">
                 <div>
-                    <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">จัดการตารางเวลา</h1>
-                    <p className="text-[var(--color-text-secondary)]">ตั้งค่าช่วงเวลาที่ว่างและจัดการลำดับความสำคัญของเคสนัดหมาย</p>
+                    <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
+                        จัดการตารางเวลา
+                    </h1>
+                    <p className="text-[var(--color-text-secondary)]">
+                        ตั้งค่าช่วงเวลาที่ว่างและจัดการลำดับความสำคัญของเคสนัดหมาย
+                    </p>
                 </div>
                 <button
                     onClick={() => alert('การเปลี่ยนแปลงถูกบันทึกทันทีเมื่อคลิกแต่ละช่อง ✅')}
@@ -281,7 +335,6 @@ export function ManageSchedule({
             </header>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
-                {/* ── Room panel ── */}
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
                     <div className="flex items-center gap-3 mb-4 text-[var(--color-accent-blue)]">
                         <Home className="w-5 h-5" />
@@ -294,26 +347,46 @@ export function ManageSchedule({
                         className="w-full p-3 rounded-xl border border-gray-300 bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500"
                     >
                         {rooms.map((room) => (
-                            <option key={room.id} value={room.id}>{room.name}</option>
+                            <option key={room.id} value={room.id}>
+                                {room.name}
+                            </option>
                         ))}
                     </select>
 
+                    {selectedRoomId && (
+                        <div className="mt-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                            <p className="text-sm text-gray-600">
+                                เจ้าของห้อง:{' '}
+                                <span className="font-semibold text-gray-800">
+                                    {selectedRoom?.roomOwner || 'ยังไม่ได้กำหนด'}
+                                </span>
+                            </p>
+                        </div>
+                    )}
+
                     <div className="flex gap-3 mt-4">
                         <button
-                            onClick={() => { setShowAddRoom(prev => !prev); setShowDeleteRoom(false); setError(''); }}
+                            onClick={() => {
+                                setShowAddRoom((prev) => !prev);
+                                setShowDeleteRoom(false);
+                                setError('');
+                            }}
                             className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition-colors"
                         >
                             เพิ่มห้อง
                         </button>
                         <button
-                            onClick={() => { setShowDeleteRoom(true); setShowAddRoom(false); setError(''); }}
+                            onClick={() => {
+                                setShowDeleteRoom(true);
+                                setShowAddRoom(false);
+                                setError('');
+                            }}
                             className="flex-1 px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors"
                         >
                             ลบห้อง
                         </button>
                     </div>
 
-                    {/* ── Add room form ── */}
                     {showAddRoom && (
                         <div className="p-4 bg-gray-50 rounded-xl space-y-3 mt-4">
                             <p className="text-sm text-gray-600 font-medium">กรอกชื่อห้องใหม่:</p>
@@ -328,7 +401,6 @@ export function ManageSchedule({
                                 className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-blue-500"
                             />
 
-                            {/* ── Counselor selector ── */}
                             <div>
                                 <label className="flex items-center gap-1.5 text-sm font-medium text-gray-600 mb-1.5">
                                     <User className="w-4 h-4" />
@@ -336,7 +408,11 @@ export function ManageSchedule({
                                 </label>
                                 <select
                                     value={selectedCounselorId}
-                                    onChange={(e) => setSelectedCounselorId(e.target.value === '' ? '' : Number(e.target.value))}
+                                    onChange={(e) =>
+                                        setSelectedCounselorId(
+                                            e.target.value === '' ? '' : Number(e.target.value)
+                                        )
+                                    }
                                     className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:border-blue-500"
                                 >
                                     <option value="">-- ไม่ระบุ --</option>
@@ -346,8 +422,11 @@ export function ManageSchedule({
                                         </option>
                                     ))}
                                 </select>
+
                                 {counselors.length === 0 && (
-                                    <p className="text-xs text-gray-400 mt-1">ไม่พบ counselor ในระบบ</p>
+                                    <p className="text-xs text-gray-400 mt-1">
+                                        ไม่พบ counselor ในระบบ
+                                    </p>
                                 )}
                             </div>
 
@@ -360,7 +439,11 @@ export function ManageSchedule({
                                     บันทึก
                                 </button>
                                 <button
-                                    onClick={() => { setShowAddRoom(false); setNewRoomName(''); setSelectedCounselorId(''); }}
+                                    onClick={() => {
+                                        setShowAddRoom(false);
+                                        setNewRoomName('');
+                                        setSelectedCounselorId('');
+                                    }}
                                     className="flex-1 px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg font-medium transition-colors"
                                 >
                                     ยกเลิก
@@ -369,13 +452,17 @@ export function ManageSchedule({
                         </div>
                     )}
 
-                    {/* ── Delete room list ── */}
                     {showDeleteRoom && (
                         <div className="p-4 bg-gray-50 rounded-xl space-y-3 mt-4">
-                            <p className="text-sm text-gray-600 font-medium">เลือกห้องที่ต้องการลบ:</p>
+                            <p className="text-sm text-gray-600 font-medium">
+                                เลือกห้องที่ต้องการลบ:
+                            </p>
                             <div className="space-y-2">
                                 {rooms.map((room) => (
-                                    <div key={room.id} className="flex items-center justify-between px-4 py-3 bg-white rounded-lg border border-gray-200">
+                                    <div
+                                        key={room.id}
+                                        className="flex items-center justify-between px-4 py-3 bg-white rounded-lg border border-gray-200"
+                                    >
                                         <span className="text-gray-700">{room.name}</span>
                                         <button
                                             onClick={() => handleRemoveRoom(room.id)}
@@ -403,24 +490,30 @@ export function ManageSchedule({
                     )}
                 </div>
 
-                {/* ── Week navigator ── */}
                 <div className="lg:col-span-3 bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)] flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Calendar className="w-6 h-6 text-[var(--color-accent-blue)]" />
-                        <h3 className="text-lg font-medium">สัปดาห์: {getWeekRange(currentDate)}</h3>
+                        <h3 className="text-lg font-medium">
+                            สัปดาห์: {getWeekRange(currentDate)}
+                        </h3>
                     </div>
                     <div className="flex gap-2">
-                        <button onClick={handlePrevWeek} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+                        <button
+                            onClick={handlePrevWeek}
+                            className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                        >
                             <ChevronLeft className="w-6 h-6" />
                         </button>
-                        <button onClick={handleNextWeek} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+                        <button
+                            onClick={handleNextWeek}
+                            className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                        >
                             <ChevronRight className="w-6 h-6" />
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/* Legend */}
             <div className="bg-white rounded-3xl p-4 shadow-sm mb-6 flex flex-wrap gap-6 px-8 border border-[var(--color-border)]">
                 <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded bg-green-50 border border-green-500"></div>
@@ -432,27 +525,38 @@ export function ManageSchedule({
                 </div>
                 <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded bg-blue-50 border border-blue-500"></div>
-                    <span className="text-sm text-gray-600">มีการจอง (คลิกซ้ายเพื่อยกเลิก)</span>
+                    <span className="text-sm text-gray-600">
+                        มีการจอง (คลิกซ้ายเพื่อยกเลิก)
+                    </span>
                 </div>
             </div>
 
-            {/* Schedule grid */}
             <div className="bg-white rounded-3xl shadow-sm border border-[var(--color-border)] overflow-hidden">
                 <table className="w-full border-collapse">
                     <thead>
                         <tr className="bg-gray-50 border-b border-[var(--color-border)]">
-                            <th className="p-4 text-left"><Clock className="w-5 h-5 text-gray-400" /></th>
-                            {days.map(day => (
-                                <th key={day} className="p-4 text-center font-semibold text-gray-700">{day}</th>
+                            <th className="p-4 text-left">
+                                <Clock className="w-5 h-5 text-gray-400" />
+                            </th>
+                            {days.map((day) => (
+                                <th key={day} className="p-4 text-center font-semibold text-gray-700">
+                                    {day}
+                                </th>
                             ))}
                         </tr>
                     </thead>
                     <tbody>
                         {times.map((time) => (
-                            <tr key={time} className="border-b border-[var(--color-border)] hover:bg-gray-50/50 transition-colors">
+                            <tr
+                                key={time}
+                                className="border-b border-[var(--color-border)] hover:bg-gray-50/50 transition-colors"
+                            >
                                 <td className="p-4 text-sm text-gray-500 font-medium">{time} น.</td>
-                                {days.map(day => {
-                                    const block = displaySchedule.find(b => b.day === day && b.time === time);
+
+                                {days.map((day) => {
+                                    const block = displaySchedule.find(
+                                        (b) => b.day === day && b.time === time
+                                    );
 
                                     if (!block) {
                                         return (
@@ -469,12 +573,15 @@ export function ManageSchedule({
                                     }
 
                                     const isBooked = !!block.bookedBy;
-                                    const isAvailable = !isBooked && (block.status || '').toLowerCase() === 'available';
+                                    const isAvailable =
+                                        !isBooked &&
+                                        (block.status || '').toLowerCase() === 'available';
+
                                     const statusClass = isBooked
                                         ? 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100 cursor-pointer'
                                         : isAvailable
-                                            ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100 cursor-pointer'
-                                            : 'bg-gray-50 border-gray-200 text-gray-400 hover:bg-gray-100 cursor-pointer';
+                                          ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100 cursor-pointer'
+                                          : 'bg-gray-50 border-gray-200 text-gray-400 hover:bg-gray-100 cursor-pointer';
 
                                     return (
                                         <td key={day} className="p-2">
@@ -484,11 +591,17 @@ export function ManageSchedule({
                                             >
                                                 {isBooked ? (
                                                     <>
-                                                        <span className="text-[10px] font-bold uppercase">จองแล้ว</span>
-                                                        <span className="text-xs font-bold">{block.bookedBy}</span>
+                                                        <span className="text-[10px] font-bold uppercase">
+                                                            จองแล้ว
+                                                        </span>
+                                                        <span className="text-xs font-bold">
+                                                            {block.bookedBy}
+                                                        </span>
                                                     </>
                                                 ) : (
-                                                    <span className="text-xs font-medium">{isAvailable ? 'ว่าง' : 'ปิด'}</span>
+                                                    <span className="text-xs font-medium">
+                                                        {isAvailable ? 'ว่าง' : 'ปิด'}
+                                                    </span>
                                                 )}
                                             </button>
                                         </td>
@@ -502,7 +615,8 @@ export function ManageSchedule({
 
             <div className="mt-8 flex justify-between items-center bg-blue-50/50 p-6 rounded-3xl border border-blue-100">
                 <div className="text-sm text-gray-600">
-                    <strong>คำแนะนำ:</strong> คลิกซ้ายที่ <b>"จองแล้ว"</b> เพื่อยกเลิกนัด | คลิกซ้ายที่ช่องเพื่อสลับ <b>ว่าง/ปิด</b>
+                    <strong>คำแนะนำ:</strong> คลิกซ้ายที่ <b>"จองแล้ว"</b> เพื่อยกเลิกนัด |
+                    คลิกซ้ายที่ช่องเพื่อสลับ <b>ว่าง/ปิด</b>
                 </div>
                 <div className="flex gap-3">
                     <button
