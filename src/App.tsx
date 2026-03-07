@@ -17,8 +17,6 @@ import { ClientProfile } from './components/Client/ClientProfile';
 import { CounselorDashboard } from './components/counselor/CounselorDashboard';
 import { CaseNotePage } from './components/counselor/CaseNotePage';
 import { ManageSchedule } from './components/counselor/ManageSchedule';
-import { AdminHome } from './components/admin/AdminHome';
-import { UserManagement } from './components/admin/UserManagement';
 import { UrgencyModal } from './components/ClientUrgencyPage'; 
 
 // --- Interface & Component: ClientHome ---
@@ -202,7 +200,6 @@ export default function App() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [waitingClients, setWaitingClients] = useState<WaitingClient[]>([]);
   const [todayAppointments, setTodayAppointments] = useState<TodayAppointment[]>([]);
-  const [adminStats, setAdminStats] = useState<any>(null);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [counselorSchedule, setCounselorSchedule] = useState<TimeBlock[]>([]);
   const [scheduleDate, setScheduleDate] = useState(new Date());
@@ -230,15 +227,6 @@ export default function App() {
         setTodayAppointments(data.appointments || []);
         setWaitingClients(data.waiting || []);
       }
-    } catch (e) { console.error(e); }
-  };
-
-  const fetchAdminData = async () => {
-    try {
-      const statsRes = await fetch(API_ENDPOINTS.ADMIN.STATS, { headers: createHeaders() });
-      if (statsRes.ok) setAdminStats(await statsRes.json());
-      const usersRes = await fetch(API_ENDPOINTS.USERS.ALL, { headers: createHeaders() });
-      if (usersRes.ok) setAllUsers(await usersRes.json());
     } catch (e) { console.error(e); }
   };
 
@@ -372,14 +360,6 @@ export default function App() {
               onScheduleAppointment={() => setCurrentPage('counselor-schedule')}
             />
           );
-      }
-    }
-    if (userRole === 'admin') {
-      const stats = adminStats || { totalUsers: 0, activeClients: 0, activeCounselors: 0, pendingApprovals: 0, totalSessions: 0, sessionsThisMonth: 0, upcomingSessions: 0, averageWaitTime: '0', topIssueTags: [] };
-      switch (currentPage) {
-        case 'admin-home': return <AdminHome stats={stats} onNavigateToApprovals={() => setCurrentPage('admin-users')} />;
-        case 'admin-users': return <UserManagement users={allUsers} onApprove={fetchAdminData} onSuspend={fetchAdminData} />;
-        default: return <AdminHome stats={stats} />;
       }
     }
   };
