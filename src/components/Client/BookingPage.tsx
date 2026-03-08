@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     Calendar, Clock, User, ChevronLeft, ChevronRight, X,
-    Bell, Info, Phone, Hash, ArrowRight
+    Bell, Info, Phone, ArrowRight
 } from 'lucide-react';
 import { useGoogleLogin } from '@react-oauth/google';
 
@@ -24,12 +24,14 @@ interface BookingPageProps {
     onNavigateToHistory: () => void;
     hasExistingBooking?: boolean;
 
+    userPhone?: string;
+    onPhoneUpdate?: (phone: string) => Promise<void>;
+
     // keep it for compatibility (but we won’t use mock)
     schedule?: TimeSlot[];
 }
 
 type CounselorRoom = {
-    counselorName?: string | null; // ชื่อ counselor (mock ก่อน จาก backend ทีหลัง)
     roomId: number;
     roomName: string; // shown in UI (e.g., "พี่ป๊อป (ห้อง 1)")
     counselorEmail: string | null;
@@ -47,6 +49,8 @@ export function BookingPage({
     onBook,
     onNavigateToHistory,
     hasExistingBooking = false,
+    userPhone = '',
+    onPhoneUpdate,
     schedule = [],
 }: BookingPageProps) {
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -55,11 +59,18 @@ export function BookingPage({
     const [showDescriptionModal, setShowDescriptionModal] = useState(false);
 
     const [studentInfo, setStudentInfo] = useState({
+        phone: userPhone || '',
+        description: '',
         studentId: '',
-        faculty: '',
-        phone: '',
-        description: ''
     });
+    // Pre-fill phone when userPhone prop changes
+    const prevPhone = React.useRef(userPhone);
+    React.useEffect(() => {
+        if (userPhone && userPhone !== prevPhone.current) {
+            prevPhone.current = userPhone;
+            setStudentInfo(prev => ({ ...prev, phone: userPhone }));
+        }
+    }, [userPhone]);
 
     const [syncWithGoogle, setSyncWithGoogle] = useState(false);
     const [googleToken, setGoogleToken] = useState<string | null>(null);
@@ -155,17 +166,14 @@ export function BookingPage({
         })();
     }, [selectedDate, selectedCounselor, counselorData]);
 
-    const handleStudentIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value.replace(/\D/g, '');
-        if (value.length <= 9) {
-            setStudentInfo({ ...studentInfo, studentId: value });
-        }
-    };
-
     const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value.replace(/\D/g, '');
         if (value.length <= 10) {
             setStudentInfo({ ...studentInfo, phone: value });
+            // บันทึก phone ไป backend ทันทีที่ครบ 10 หลัก
+            if (value.length === 10 && onPhoneUpdate) {
+                onPhoneUpdate(value).catch(console.error);
+            }
         }
     };
 
@@ -187,7 +195,7 @@ export function BookingPage({
 
         const event = {
             summary: `นัดหมายปรึกษา: ${counselorName} (Entaneer Mind)`,
-            description: `รหัสประจำตัว: ${info.studentId}\nเบอร์โทร: ${info.phone}\nเรื่องที่ปรึกษา: ${info.description}`,
+            description: `เบอร์โทร: ${info.phone}\nเรื่องที่ปรึกษา: ${info.description}`,
             start: { dateTime: startDateTime.toISOString(), timeZone: 'Asia/Bangkok' },
             end: { dateTime: endDateTime.toISOString(), timeZone: 'Asia/Bangkok' },
             attendees: [{ email: counselorEmail }],
@@ -226,11 +234,6 @@ export function BookingPage({
     });
 
     const handleBooking = async () => {
-        // studentId optional (รองรับบุคลากรที่ไม่มีรหัส นศ.)
-        if (studentInfo.studentId && studentInfo.studentId.length !== 9) {
-            alert('รหัสประจำตัวต้องมี 9 หลัก (หรือเว้นว่างได้)');
-            return;
-        }
         if (studentInfo.phone.length !== 10) {
             alert('เบอร์โทรศัพท์ต้องมี 10 หลัก');
             return;
@@ -267,7 +270,6 @@ export function BookingPage({
                 headers: getAuthHeader(),
                 body: JSON.stringify({
                     sessionId: selectedSlot.sessionId,
-                    studentId: studentInfo.studentId,
                     phone: studentInfo.phone,
                     description: studentInfo.description,
                     googleEventId,
@@ -294,7 +296,7 @@ export function BookingPage({
             });
 
             setShowDescriptionModal(false);
-            setStudentInfo({ studentId: '', faculty: '', phone: '', description: '' });
+            setStudentInfo({ phone: '', description: '', studentId: '' });
 
             // refresh slots
             const meta = counselorData[selectedCounselor];
@@ -378,25 +380,18 @@ export function BookingPage({
                 </h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {counselorRooms.map((room) => (
+                    {counselors.map((name) => (
                         <button
-                            key={room.roomName}
-                            onClick={() => setSelectedCounselor(room.roomName)}
-                            className={`p-6 rounded-[2rem] border-2 transition-all text-left flex items-center justify-between ${selectedCounselor === room.roomName
+                            key={name}
+                            onClick={() => setSelectedCounselor(name)}
+                            className={`p-6 rounded-[2rem] border-2 transition-all text-left flex items-center justify-between ${selectedCounselor === name
                                 ? 'border-green-500 bg-green-50 shadow-md shadow-green-100'
                                 : 'border-white bg-white hover:border-gray-200 shadow-sm'
                                 }`}
                         >
-                            <div>
-                                <p className={`font-bold text-lg ${selectedCounselor === room.roomName ? 'text-green-800' : 'text-gray-700'}`}>
-                                    {room.counselorName || 'ผู้ให้คำปรึกษา'}
-                                </p>
-                                <p className={`text-sm mt-0.5 ${selectedCounselor === room.roomName ? 'text-green-600' : 'text-gray-400'}`}>
-                                    {room.roomName}
-                                </p>
-                            </div>
-                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${selectedCounselor === room.roomName ? 'border-green-500 bg-green-500' : 'border-gray-200'}`}>
-                                {selectedCounselor === room.roomName && <div className="w-2 h-2 bg-white rounded-full" />}
+                            <p className={`font-bold text-lg ${selectedCounselor === name ? 'text-green-800' : 'text-gray-700'}`}>{name}</p>
+                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${selectedCounselor === name ? 'border-green-500 bg-green-500' : 'border-gray-200'}`}>
+                                {selectedCounselor === name && <div className="w-2 h-2 bg-white rounded-full" />}
                             </div>
                         </button>
                     ))}
@@ -519,22 +514,6 @@ export function BookingPage({
                             <div className="bg-green-50 p-4 rounded-2xl border border-green-100 mb-2 text-sm text-green-800">
                                 <p><strong>ผู้ให้คำปรึกษา:</strong> {selectedCounselor}</p>
                                 <p><strong>วัน/เวลา:</strong> {selectedDate.toLocaleDateString('th-TH')} @ {selectedSlot.time} น.</p>
-                            </div>
-
-                            <div className="relative">
-                                <label className="flex items-center gap-2 text-xs font-black text-gray-400 mb-2 uppercase tracking-tighter">
-                                    รหัสประจำตัว (ไม่บังคับสำหรับบุคลากร)
-                                </label>
-                                <div className="relative">
-                                    <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                    <input
-                                        type="text"
-                                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-green-500 outline-none"
-                                        placeholder="650610xxx"
-                                        value={studentInfo.studentId}
-                                        onChange={handleStudentIdChange}
-                                    />
-                                </div>
                             </div>
 
                             <div className="relative">

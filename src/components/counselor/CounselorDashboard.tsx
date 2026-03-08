@@ -32,6 +32,7 @@ interface CounselorDashboardProps {
     onScheduleAppointment?: (studentId: string) => void;
     onApproveWaiting?: (studentId: string) => void;
     onNavigateToReport?: () => void;
+    onCreateToken?: (tokenCode: string) => Promise<any>;
     systemStats?: SystemStats;
 }
 
@@ -68,14 +69,13 @@ export function CounselorDashboard({
     onScheduleAppointment,
     onApproveWaiting,
     onNavigateToReport,
+    onCreateToken,
 }: CounselorDashboardProps) {
     const [generatedToken, setGeneratedToken] = useState<string>("");
     const [copiedToken, setCopiedToken] = useState(false);
     const [tokenListLoading, setTokenListLoading] = useState(true);
     const [tokenListError, setTokenListError] = useState<string | null>(null);
 
-    //สร้าง local token ก่อนส่ง Api
-    const [token, setToken] = useState<string>("");
     const [error, setError] = useState<string | null>(null);
 
     // Mockup Data
@@ -101,9 +101,21 @@ export function CounselorDashboard({
 
     // API-backed state
     const [todayAppointmentsData, setTodayAppointmentsData] = useState<TodayAppointment[]>([]);
-    const [waitingStudentsData, setWaitingStudentsData] = useState<WaitingStudent[]>([]);
-    const [totalCasesData, setTotalCasesData] = useState<number>(0);
+    // waitingStudents: ใช้จาก props (App fetch /counselor/users มาแล้ว) ก่อน
+    const [waitingStudentsData, setWaitingStudentsData] = useState<WaitingStudent[]>(initialWaitingStudents || []);
+    const [totalCasesData, setTotalCasesData] = useState<number>(initialTotalCount ?? 0);
     const [systemStatsData, setSystemStatsData] = useState<SystemStats>(systemStats);
+
+    // Sync waitingStudents from props whenever parent re-fetches
+    React.useEffect(() => {
+        if (initialWaitingStudents && initialWaitingStudents.length > 0) {
+            setWaitingStudentsData(initialWaitingStudents);
+        }
+    }, [initialWaitingStudents]);
+
+    React.useEffect(() => {
+        if (initialTotalCount !== undefined) setTotalCasesData(initialTotalCount);
+    }, [initialTotalCount]);
 
     // Fetch schedule for today -> derive todayAppointments, waitingStudents, totalCases
     React.useEffect(() => {
@@ -174,44 +186,74 @@ export function CounselorDashboard({
     }, []);
 
     const handleGenerateToken = () => {
-        const isValid = validateTokenBE(token);
+        // สุ่ม token TK-XXXXXX (X = A-Z หรือ 0-9 แบบ random 6 ตัว)
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        const randomPart = Array.from({ length: 6 }, () =>
+            chars[Math.floor(Math.random() * chars.length)]
+        ).join('');
+        const newTokenCode = `TK-${randomPart}`;
 
-        if (!isValid) {
-            setError("รหัสไม่ถูกต้อง หรือปี พ.ศ. ไม่ตรง");
-            setGeneratedToken("");
+        if (isDuplicate(newTokenCode)) {
+            // สุ่มใหม่อัตโนมัติถ้าซ้ำ (ซึ่งแทบเป็นไปไม่ได้)
+            handleGenerateToken();
             return;
         }
 
-        if (isDuplicate(token)) {
-            setError("Token นี้ถูกสร้างไปแล้ว");
-            setGeneratedToken("")
-            return;
-        }
+        setError(null);
+        setGeneratedToken(newTokenCode);
+        setCopiedToken(false);
+    };
 
-        if (highestToken) {
-            const nextExpected =
-                (parseInt(highestToken.token) + 1).toString().padStart(6, "0");
+    const handleConfirmToken = async () => {
+        if (!generatedToken) return;
 
-            if (token !== nextExpected) {
-                setError(`Token ผิดลำดับ`);
-                return;
+        // บันทึกไป backend
+        if (onCreateToken) {
+            try {
+                await onCreateToken(generatedToken);
+            } catch (e: any) {
+                console.warn('onCreateToken failed:', e?.message);
             }
         }
 
-        const newId =
-            tokens.length > 0 ? Math.max(...tokens.map(t => t.id)) + 1 : 1;
-
+        const newId = tokens.length > 0 ? Math.max(...tokens.map(t => t.id)) + 1 : 1;
         const newToken: allToken = {
             id: newId,
-            token: token,
+            token: generatedToken,
             isUsed: false,
             createdAt: new Date()
         };
 
         setTokens(prev => [...prev, newToken]);
-        setError(null);
-        setGeneratedToken(token);
+        setGeneratedToken('');
         setCopiedToken(false);
+        setError(null);
+    };
+
+    const handleDeleteToken = async (id: number) => {
+        if (!window.confirm('ต้องการลบ token นี้ใช่หรือไม่?')) return;
+        // optimistic remove ทันที
+        setTokens(prev => prev.filter(t => t.id !== id));
+        try {
+            const res = await fetch(`${API_BASE_URL}/counselor/tokens/${id}`, {
+                method: 'DELETE',
+                headers: getAuthHeader(),
+            });
+            if (!res.ok) {
+                // revert ถ้าล้มเหลว
+                const err = await res.json().catch(() => ({}));
+                alert(err?.message || 'ลบไม่สำเร็จ');
+                // re-fetch เพื่อ sync
+                const refetch = await fetch(`${API_BASE_URL}/counselor/tokens`, { headers: getAuthHeader() });
+                if (refetch.ok) {
+                    const json = await refetch.json();
+                    const raw = json.data?.tokens ?? [];
+                    setTokens(raw.map((t: any) => ({ id: t.id, token: t.token, isUsed: t.isUsed, usedAt: t.usedAt ? new Date(t.usedAt) : undefined, createdAt: new Date(t.createdAt) })));
+                }
+            }
+        } catch (e) {
+            console.error('deleteToken error:', e);
+        }
     };
 
     const handleCopyToken = () => {
@@ -222,20 +264,8 @@ export function CounselorDashboard({
         setTimeout(() => setCopiedToken(false), 2000);
     };
 
-    //เช็คแพทเทิร์นของ input ที่ใส่เข้ามาว่า *เป็นปีตามปัจจุบันหรือไม่ *ครบ 6 ตัวไหม(สำหรับรันนัมเบอร์ 4 ตัว)
-    const validateTokenBE = (token: string) => {
-        const regex = /^\d{6}$/;
-        if (!regex.test(token)) return false;
-
-        const currentYearBE = (new Date().getFullYear() + 543)
-            .toString()
-            .slice(-2);
-
-        return token.slice(0, 2) === currentYearBE;
-    };
-
-    const isDuplicate = (token: string) => {
-        return tokens.some((t) => t.token === token);
+    const isDuplicate = (tokenCode: string) => {
+        return tokens.some((t) => t.token === tokenCode);
     };
 
     // Token list state — populated from API
@@ -294,12 +324,6 @@ export function CounselorDashboard({
             ? a.token.localeCompare(b.token)
             : b.token.localeCompare(a.token)
     );
-
-    const highestToken = tokens.length > 0
-        ? tokens.reduce((max, current) =>
-            current.token > max.token ? current : max
-        )
-        : null;
 
     const getUrgencyLabel = (urgency: string) => {
         switch (urgency) {
@@ -395,38 +419,49 @@ export function CounselorDashboard({
                             <Key className="size-5 text-[var(--color-accent-green)]" />
                             <h3 className="font-bold">สร้างรหัสลงทะเบียน (Token)</h3>
                         </div>
-                        <p className="text-sm text-[var(--color-text-secondary)] mb-6">สร้างรหัสเฉพาะสำหรับนักศึกษาใหม่</p>
+                        <p className="text-sm text-[var(--color-text-secondary)] mb-6">สร้างรหัสเฉพาะสำหรับนักศึกษาใหม่ รูปแบบ TK-XXXXXX</p>
 
-                        {/* input section */}
-                        <input
-                            className='w-full bg-gray-50 border border-dashed border-gray-300 rounded-2xl p-4 mb-4'
-                            type="text"
-                            value={token}
-                            onChange={(e) => {
-                                const value = e.target.value.replace(/\D/g, "");
-                                setToken(value);
-                            }}
-                            maxLength={6}
-                            placeholder="เช่น ปปรรรร โดย ป(ปี) และ ร(รันนัมเบอร์)"
-                        />
-
-                        <button onClick={handleGenerateToken} className="w-full bg-[var(--color-accent-green)] text-white py-3 rounded-2xl hover:opacity-90 transition-opacity mb-4 font-medium">
-                            สร้างรหัสลงทะเบียนใหม่
-                        </button>
-
-                        {/* แจ้งเตือนหากมีการเขียนค่าผิด */}
-                        {error && <p className="text-red-500 mt-4">{error}</p>}
-
-                        {generatedToken && (
-                            <div className="bg-gray-50 border border-dashed border-gray-300 rounded-2xl p-4">
+                        {/* Preview token ที่สุ่มได้ */}
+                        {generatedToken ? (
+                            <div className="bg-gray-50 border-2 border-dashed border-green-300 rounded-2xl p-4 mb-4">
+                                <p className="text-xs text-gray-400 mb-2 font-medium">Token ที่สุ่มได้ (ยังไม่ถูกบันทึก)</p>
                                 <div className="flex items-center gap-2">
-                                    <code className="flex-1 bg-white px-3 py-2 rounded-xl text-sm font-mono break-all border border-gray-100">{generatedToken}</code>
-                                    <button onClick={handleCopyToken} className="p-2 hover:bg-white rounded-xl transition-colors shadow-sm">
+                                    <code className="flex-1 bg-white px-3 py-2 rounded-xl text-lg font-mono font-bold text-green-700 border border-green-100 tracking-widest">
+                                        {generatedToken}
+                                    </code>
+                                    <button onClick={handleCopyToken} className="p-2 hover:bg-white rounded-xl transition-colors shadow-sm" title="Copy">
                                         {copiedToken ? <CheckCircle className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5 text-[var(--color-accent-blue)]" />}
                                     </button>
                                 </div>
+                                <div className="flex gap-2 mt-3">
+                                    <button
+                                        onClick={handleConfirmToken}
+                                        className="flex-1 py-2.5 bg-green-500 text-white rounded-xl font-bold text-sm hover:bg-green-600 transition-colors"
+                                    >
+                                        ✓ ยืนยันและบันทึก
+                                    </button>
+                                    <button
+                                        onClick={() => { setGeneratedToken(''); setError(null); }}
+                                        className="px-4 py-2.5 bg-gray-100 text-gray-500 rounded-xl font-bold text-sm hover:bg-gray-200 transition-colors"
+                                    >
+                                        ยกเลิก
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="h-[88px] flex items-center justify-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl mb-4">
+                                <p className="text-sm text-gray-300">กด "สุ่ม Token" เพื่อสร้างรหัสใหม่</p>
                             </div>
                         )}
+
+                        <button
+                            onClick={handleGenerateToken}
+                            className="w-full bg-[var(--color-accent-green)] text-white py-3 rounded-2xl hover:opacity-90 transition-opacity font-medium"
+                        >
+                            🎲 สุ่ม Token ใหม่
+                        </button>
+
+                        {error && <p className="text-red-500 mt-3 text-sm">{error}</p>}
                     </div>
 
                     {/* Token Dashboard */}
@@ -480,36 +515,45 @@ export function CounselorDashboard({
                                     <div className="text-center py-8 text-red-400 text-sm">เกิดข้อผิดพลาด: {tokenListError}</div>
                                 ) : sortedTokens.length === 0 ? (
                                     <div className="text-center py-8 text-gray-400 text-sm">ไม่พบ Token</div>
-                                ) : sortedTokens.map((token) => (
+                                ) : sortedTokens.map((t) => (
                                     <div
-                                        key={token.id}
-                                        className={`p-4 rounded-xl border-2 transition-all ${token.isUsed
-                                            ? 'bg-green-50 border-green-200'
+                                        key={t.id}
+                                        className={`p-4 rounded-xl border-2 transition-all ${t.isUsed
+                                            ? 'bg-green-50 border-green-200 opacity-60'
                                             : 'bg-white border-gray-200 hover:border-gray-300'
                                             }`}
                                     >
-                                        <div className="flex items-start justify-between">
+                                        <div className="flex items-center justify-between">
                                             <div>
-                                                <p className="font-semibold text-lg text-gray-800">
-                                                    {token.token}
+                                                <p className="font-bold text-lg font-mono tracking-widest text-gray-800">
+                                                    {t.token}
                                                 </p>
-                                                <p className="text-sm text-gray-500">{token.usedAt?.toLocaleString() ?? '-'}</p>
+                                                <p className="text-xs text-gray-400 mt-0.5">
+                                                    {t.isUsed ? `ใช้แล้ว${t.usedAt ? ` • ${new Date(t.usedAt).toLocaleDateString('th-TH')}` : ''}` : 'ยังไม่ถูกใช้งาน'}
+                                                </p>
                                             </div>
+                                            {!t.isUsed && (
+                                                <div className="flex items-center gap-1">
+                                                    <button
+                                                        onClick={() => navigator.clipboard.writeText(t.token)}
+                                                        className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                                                        title="Copy"
+                                                    >
+                                                        <Copy className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteToken(t.id)}
+                                                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                        title="Delete"
+                                                    >
+                                                        <AlertCircle className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
-                                        {token.isUsed && (
-                                            <p className="mt-2 text-sm text-green-700">
-                                                ถูกใช้งานแล้ว
-                                            </p>
-                                        )}
                                     </div>
                                 ))}
                             </div>
-                            {highestToken && (
-                                <div className="p-4 bg-green-50 rounded-xl mt-2">
-                                    <p className="text-sm text-gray-500">Token สูงสุดที่ถูกสร้างมาแล้ว</p>
-                                    <p className="text-lg font-semibold">{highestToken.token}</p>
-                                </div>
-                            )}
                         </div>
                     </div>
 
@@ -569,15 +613,12 @@ export function CounselorDashboard({
                                             <td className="px-4 py-4 text-[var(--color-text-secondary)]">{student.waitingSince}</td>
                                             <td className="px-4 py-4"><span className={`px-3 py-1 rounded-full text-[11px] font-bold border ${getUrgencyColor(student.urgency)}`}>{getUrgencyLabel(student.urgency)}</span></td>
                                             <td className="px-4 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={() => onApproveWaiting?.(student.id)}
-                                                        className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-bold rounded-xl transition-colors"
-                                                    >
-                                                        ✓ ยืนยัน
-                                                    </button>
-                                                    <button onClick={() => onScheduleAppointment?.(student.id)} className="text-[var(--color-accent-blue)] font-bold hover:underline text-xs">ลงตาราง</button>
-                                                </div>
+                                                <button
+                                                    onClick={() => onApproveWaiting?.(student.id)}
+                                                    className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-xs font-bold rounded-xl transition-colors whitespace-nowrap"
+                                                >
+                                                    ✓ ยืนยัน
+                                                </button>
                                             </td>
                                         </tr>
                                     ))}

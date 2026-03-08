@@ -152,15 +152,21 @@ function generatePDFReport(data: ReportData) {
   <!-- Section 2: Problem Tags -->
   <div class="section">
     <div class="section-title">ปัญหาที่พบบ่อย (Problem Tags)</div>
-    ${data.topTags.map(t => `
-      <div class="bar-row">
-        <div class="bar-label">${t.tag}</div>
-        <div class="bar-track">
-          <div class="bar-fill" style="width:${Math.round((t.count / maxTagCount) * 100)}%; background: linear-gradient(90deg, #4A90E2, #66BB6A);"></div>
-        </div>
-        <div class="bar-count">${t.count}</div>
-      </div>
-    `).join('')}
+    ${(() => {
+            const totalCount = data.topTags.reduce((s, t) => s + t.count, 0);
+            return data.topTags.map(t => {
+                const pct = totalCount > 0 ? Math.round((t.count / totalCount) * 100) : 0;
+                return `
+          <div class="bar-row">
+            <div class="bar-label">${t.tag}</div>
+            <div class="bar-track">
+              <div class="bar-fill" style="width:${pct}%; background: linear-gradient(90deg, #4A90E2, #66BB6A);"></div>
+            </div>
+            <div class="bar-count">${t.count} (${pct}%)</div>
+          </div>
+        `;
+            }).join('');
+        })()}
   </div>
 
   <!-- Section 3: Two columns - Department + Counselor Workload -->
@@ -279,7 +285,7 @@ export function ReportGenerator({ onFetchReportData }: ReportGeneratorProps) {
                             completedSessions: d.sessionStats?.byStatus?.completed ?? 0,
                             cancelledSessions: d.sessionStats?.byStatus?.cancelled ?? 0,
                             newClients: d.userStats?.byRole?.client ?? 0,
-                            averageWaitDays: d.caseStats?.byStatus?.waiting_confirmation ?? 0,
+                            averageWaitDays: d.averageWaitDays ?? d.caseStats?.averageWaitDays ?? 0,
                         },
                         topTags: (d.topProblemTags ?? []).map((t: any) => ({
                             tag: t.label,
@@ -464,20 +470,29 @@ export function ReportGenerator({ onFetchReportData }: ReportGeneratorProps) {
                                     <TrendingUp className="w-5 h-5 text-green-500" /> ปัญหาที่พบบ่อย (Problem Tags)
                                 </h3>
                                 <div className="space-y-4">
-                                    {reportData.topTags.map((tag, i) => (
-                                        <div key={i}>
-                                            <div className="flex justify-between mb-1">
-                                                <span className="text-sm font-semibold text-gray-700">{tag.tag}</span>
-                                                <span className="text-sm font-bold">{tag.count} เคส</span>
-                                            </div>
-                                            <div className="w-full bg-gray-100 rounded-full h-2.5">
-                                                <div
-                                                    className="bg-gradient-to-r from-[var(--color-accent-blue)] to-[var(--color-accent-green)] h-2.5 rounded-full"
-                                                    style={{ width: `${(tag.count / maxTagCount) * 100}%` }}
-                                                />
-                                            </div>
-                                        </div>
-                                    ))}
+                                    {(() => {
+                                        const totalTagCount = reportData.topTags.reduce((sum, t) => sum + t.count, 0);
+                                        return reportData.topTags.map((tag, i) => {
+                                            const pct = totalTagCount > 0 ? Math.round((tag.count / totalTagCount) * 100) : 0;
+                                            return (
+                                                <div key={i}>
+                                                    <div className="flex justify-between mb-1">
+                                                        <span className="text-sm font-semibold text-gray-700">{tag.tag}</span>
+                                                        <span className="text-sm font-bold text-gray-500">
+                                                            {tag.count} session
+                                                            <span className="ml-2 text-[var(--color-accent-blue)]">{pct}%</span>
+                                                        </span>
+                                                    </div>
+                                                    <div className="w-full bg-gray-100 rounded-full h-2.5">
+                                                        <div
+                                                            className="bg-gradient-to-r from-[var(--color-accent-blue)] to-[var(--color-accent-green)] h-2.5 rounded-full transition-all duration-500"
+                                                            style={{ width: `${pct}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            );
+                                        });
+                                    })()}
                                 </div>
                             </section>
 

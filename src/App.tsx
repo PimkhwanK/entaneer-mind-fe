@@ -1,39 +1,39 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { LandingPage } from './components/LandingPage';
 import { Layout } from './components/Layout';
 import { PDPAModal } from './components/PDPAModal';
 import { TokenModal } from './components/TokenModal';
 import { GoogleOAuthProvider } from '@react-oauth/google';
-import { AlertCircle, Timer, ArrowRight } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
 import { API_ENDPOINTS, API_BASE_URL, getAuthHeader } from './config/api.config';
-import type { UserRole, Appointment, WaitingClient, TodayAppointment, TimeBlock } from './types';
+import type { UserRole, Appointment, TodayAppointment, TimeBlock } from './types';
 
-// ── Client Components (จาก Pimpit) ──
 import { BookingPage } from './components/Client/BookingPage';
 import { ClientHistory } from './components/Client/ClientHistory';
 import { ClientProfile } from './components/Client/ClientProfile';
 import { ClientHome } from './components/Client/ClientHome';
 
-// ── Counselor Components ──
 import { CounselorDashboard } from './components/counselor/CounselorDashboard';
 import { CaseNotePage } from './components/counselor/CaseNotePage';
 import { ManageSchedule } from './components/counselor/ManageSchedule';
 import { CounselorUserManagement } from './components/counselor/CounselorUserManagement';
 import { ReportGenerator } from './components/counselor/ReportGenerator';
 
-// ── Admin Components ──
 import { AdminHome } from './components/admin/AdminHome';
 import { UserManagement } from './components/admin/UserManagement';
-
-// ── Modal Components (จาก Pimpit) ──
 import { UrgencyModal } from './components/ClientUrgencyPage';
-// ── App ──
+import { WaitingPage } from './components/Client/WaitingPage';
+
 type AppState = 'loading' | 'landing' | 'app' | 'error';
 
 function createHeaders(extra: Record<string, string> = {}): Record<string, string> {
   return { ...getAuthHeader(), ...extra };
 }
+
+const PAGE_KEY = 'em_current_page';
+const getSavedPage = () => { try { return localStorage.getItem(PAGE_KEY) || ''; } catch { return ''; } };
+const savePage = (p: string) => { try { localStorage.setItem(PAGE_KEY, p); } catch { } };
 
 export default function App() {
   const [upcomingAppointments, setUpcomingAppointments] = useState<{ id: string; date: string; time: string; counselor: string }[]>([]);
@@ -43,21 +43,25 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [userRole, setUserRole] = useState<UserRole>(null);
   const [userData, setUserData] = useState<any>(null);
-  const [currentPage, setCurrentPage] = useState('');
+  const [currentPage, _setCurrentPage] = useState(getSavedPage());
   const [errorMessage, setErrorMessage] = useState('');
-
   const [showUrgency, setShowUrgency] = useState(false);
   const [showPDPA, setShowPDPA] = useState(false);
   const [showToken, setShowToken] = useState(false);
   const [debugForceShowHome, setDebugForceShowHome] = useState(false);
-
   const [appointments] = useState<Appointment[]>([]);
-  const [waitingClients] = useState<WaitingClient[]>([]);
   const [todayAppointments, setTodayAppointments] = useState<TodayAppointment[]>([]);
   const [counselorSchedule, setCounselorSchedule] = useState<TimeBlock[]>([]);
   const [scheduleDate, setScheduleDate] = useState<Date>(new Date());
   const [adminStats, setAdminStats] = useState<any>(null);
   const [allUsers] = useState<any[]>([]);
+  const [waitingCases, setWaitingCases] = useState<any[]>([]);
+  const refreshTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const setCurrentPage = useCallback((page: string) => {
+    _setCurrentPage(page);
+    savePage(page);
+  }, []);
 
   const hasUpcomingBooking = useMemo(() => upcomingAppointments.length > 0, [upcomingAppointments]);
 
@@ -65,7 +69,7 @@ export default function App() {
     return todayAppointments.map((apt) => ({
       id: apt.id,
       time: apt.time,
-      studentName: (apt as TodayAppointment & { studentName?: string }).studentName ?? apt.clientName,
+      studentName: (apt as any).studentName ?? apt.clientName,
       status: apt.status,
       caseCode: apt.caseCode,
     }));
@@ -75,26 +79,57 @@ export default function App() {
     try {
       const res = await fetch(`${API_BASE_URL}/client-home`, { headers: createHeaders() });
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data?.message || 'โหลดข้อมูลหน้าหลักไม่สำเร็จ');
-      }
-
+      if (!res.ok) throw new Error(data?.message || 'โหลดข้อมูลหน้าหลักไม่สำเร็จ');
       setUpcomingAppointments(Array.isArray(data?.upcomingAppointments) ? data.upcomingAppointments : []);
       setCompletedCount(Number(data?.completedCount ?? 0));
       setCounselorCount(Number(data?.counselorCount ?? 0));
     } catch (e) {
       console.error(e);
-      setUpcomingAppointments([]);
-      setCompletedCount(0);
-      setCounselorCount(0);
+      setUpcomingAppointments([]); setCompletedCount(0); setCounselorCount(0);
     }
   }, []);
 
   const fetchCounselorData = useCallback(async () => {
+    // ดึง today appointments จาก /counselor/schedule (endpoint เดียวที่มีจริง)
     try {
-      const res = await fetch(API_ENDPOINTS.APPOINTMENTS.COUNSELOR_TODAY, { headers: createHeaders() });
-      if (res.ok) setTodayAppointments(await res.json());
+      const today = new Date().toISOString().split('T')[0];
+      const res = await fetch(`${API_BASE_URL}/counselor/schedule?startDate=${today}&endDate=${today}`, { headers: createHeaders() });
+      if (res.ok) {
+        const json = await res.json();
+        const sessions: any[] = json.data?.sessions ?? [];
+        const mapped: TodayAppointment[] = sessions
+          .filter((s: any) => ['booked', 'completed'].includes(s.status))
+          .map((s: any) => ({
+            id: String(s.sessionId),
+            time: s.timeStart ? new Date(s.timeStart).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-',
+            clientName: s.case?.client?.name ?? '-',
+            studentName: s.case?.client?.name ?? '-',
+            status: (s.status === 'completed' ? 'completed' : 'pending') as 'pending' | 'in-progress' | 'completed',
+            caseCode: s.case ? `CASE-${s.case.caseId}` : '-',
+          }));
+        setTodayAppointments(mapped);
+      }
+    } catch (e) { console.error(e); }
+
+    try {
+      // ดึง waiting clients จาก /counselor/users - filter caseStats.active > 0
+      const res = await fetch(`${API_BASE_URL}/counselor/users`, { headers: createHeaders() });
+      if (res.ok) {
+        const json = await res.json();
+        const users: any[] = json.data?.users ?? json.users ?? [];
+        const waiting = users
+          .filter((u: any) => u.roleName === 'client' && (u.caseStats?.active ?? 0) > 0)
+          .map((u: any) => ({
+            id: String(u.userId),
+            name: u.name ?? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim(),
+            waitingSince: u.createdAt
+              ? new Date(u.createdAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+              : '-',
+            urgency: 'medium' as const,
+            caseStats: u.caseStats,
+          }));
+        setWaitingCases(waiting);
+      }
     } catch (e) { console.error(e); }
   }, []);
 
@@ -107,10 +142,19 @@ export default function App() {
 
   const loadInitialData = useCallback((role: string) => {
     const r = role.toLowerCase();
-    if (r === 'client') { setCurrentPage('client-home'); fetchClientData(); }
-    else if (r === 'counselor') { setCurrentPage('counselor-dashboard'); fetchCounselorData(); }
-    else if (r === 'admin') { setCurrentPage('admin-home'); fetchAdminData(); }
-  }, [fetchClientData, fetchCounselorData, fetchAdminData]);
+    const saved = getSavedPage();
+    const validMap: Record<string, string[]> = {
+      client: ['client-home', 'client-booking', 'client-history', 'client-profile'],
+      counselor: ['counselor-dashboard', 'counselor-notes', 'counselor-schedule', 'counselor-users', 'counselor-report'],
+      admin: ['admin-home', 'admin-users'],
+    };
+    const defaults: Record<string, string> = { client: 'client-home', counselor: 'counselor-dashboard', admin: 'admin-home' };
+    const initialPage = (saved && validMap[r]?.includes(saved)) ? saved : (defaults[r] ?? '');
+    setCurrentPage(initialPage);
+    if (r === 'client') fetchClientData();
+    else if (r === 'counselor') fetchCounselorData();
+    else if (r === 'admin') fetchAdminData();
+  }, [fetchClientData, fetchCounselorData, fetchAdminData, setCurrentPage]);
 
   const checkAuth = useCallback(async () => {
     const token = localStorage.getItem('token');
@@ -122,18 +166,33 @@ export default function App() {
         setUserData(data);
         const role = (data.roleName || '').toLowerCase() as UserRole;
         setUserRole(role);
-        // counselor ไม่ผ่าน urgency/PDPA/token flow → ไป dashboard เลย
         if (role === 'counselor') {
           loadInitialData(role);
+        } else if (role === 'client') {
+          const flowStatus = (data.flowStatus ?? 'normal') as string;
+          // Flow: login → urgency → PDPA → token → waiting → home
+          if (flowStatus === 'require_consent') {
+            // ยังไม่ยอมรับ PDPA → ต้องผ่าน urgency ก่อน แล้วค่อย PDPA
+            localStorage.removeItem('pdpa_accepted');
+            localStorage.removeItem('urgency_submitted');
+            setShowUrgency(true);
+          } else if (flowStatus === 'require_token') {
+            // ยอมรับ PDPA แล้ว แต่ยังไม่มี token
+            localStorage.removeItem('token_submitted');
+            setShowToken(true);
+          } else if (flowStatus === 'waiting_approval') {
+            // มี token แล้ว รอ counselor ยืนยัน → เข้า app แต่จะเห็น waiting screen
+            loadInitialData(role);
+          } else {
+            // normal — เข้าแอปได้เลย
+            loadInitialData(role);
+          }
         } else {
-          if (localStorage.getItem('urgency_submitted') !== 'true') setShowUrgency(true);
-          else if (localStorage.getItem('pdpa_accepted') !== 'true') setShowPDPA(true);
-          else if (localStorage.getItem('token_submitted') !== 'true') setShowToken(true);
-          else if (role) loadInitialData(role);
+          if (role) loadInitialData(role);
         }
         setAppState('app');
       } else { localStorage.removeItem('token'); setAppState('landing'); }
-    } catch (error) { setAppState('error'); setErrorMessage('การเชื่อมต่อล้มเหลว'); }
+    } catch { setAppState('error'); setErrorMessage('การเชื่อมต่อล้มเหลว'); }
     finally { setIsLoading(false); }
   }, [loadInitialData]);
 
@@ -142,22 +201,37 @@ export default function App() {
     const tokenFromUrl = urlParams.get('token');
     if (tokenFromUrl) {
       localStorage.setItem('token', tokenFromUrl);
-      window.history.replaceState({}, document.title, window.location.pathname === '/login-success' ? '/' : window.location.pathname);
+      window.history.replaceState({}, document.title,
+        window.location.pathname === '/login-success' ? '/' : window.location.pathname);
     }
     checkAuth();
   }, [checkAuth]);
 
-  const handleUrgencySubmit = async (text: string) => {
+  // auto-refresh ทุก 30 วินาที
+  useEffect(() => {
+    if (appState !== 'app') return;
+    if (refreshTimer.current) clearInterval(refreshTimer.current);
+    refreshTimer.current = setInterval(() => {
+      if (userRole === 'client') fetchClientData();
+      else if (userRole === 'counselor') fetchCounselorData();
+    }, 30_000);
+    return () => { if (refreshTimer.current) clearInterval(refreshTimer.current); };
+  }, [appState, userRole, fetchClientData, fetchCounselorData]);
+
+  const handleUrgencySubmit = async (urgencyLevel: string, urgencyDetails: string) => {
+    // บันทึก urgency ไป backend (PATCH case priority)
     try {
-      const urgencyValue = text.trim() ? text.trim() : 'ไม่ได้ระบุ';
-      localStorage.setItem('user_urgency', urgencyValue);
-      localStorage.setItem('urgency_submitted', 'true');
-      setShowUrgency(false);
-      setShowPDPA(true);
-    } catch (error) {
-      console.error(error);
-      alert('เกิดข้อผิดพลาดในการบันทึก');
+      await fetch(`${API_BASE_URL}/cases/urgency`, {
+        method: 'POST',
+        headers: createHeaders(),
+        body: JSON.stringify({ urgencyLevel, urgencyDetails }),
+      });
+    } catch (e) {
+      console.warn('urgency submit failed (non-blocking):', e);
     }
+    localStorage.setItem('urgency_submitted', 'true');
+    setShowUrgency(false);
+    setShowPDPA(true);
   };
 
   const handleTokenSubmit = async (code: string) => {
@@ -171,57 +245,41 @@ export default function App() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data?.message || 'รหัสไม่ถูกต้อง');
       }
-      localStorage.setItem('token_submitted', 'true');
+      // สำเร็จ → ปิด modal แล้ว re-fetch userData ใหม่ (flowStatus จะเปลี่ยนเป็น waiting_approval)
       setShowToken(false);
-      alert('ลงทะเบียนสำเร็จ! กำลังเข้าสู่ระบบ...');
-      window.location.reload();
+      setIsLoading(true);
+      await checkAuth();
     } catch (error: any) {
-      console.error(error);
       alert(error.message || 'รหัสไม่ถูกต้อง');
     }
   };
 
   const handleLogout = () => {
     localStorage.clear();
+    savePage('');
     setAppState('landing');
     setUserRole(null);
     setUserData(null);
-    setCurrentPage('');
+    _setCurrentPage('');
     setDebugForceShowHome(false);
   };
 
   const renderContent = () => {
     if (!userRole || !userData || showUrgency || showPDPA || showToken) return null;
 
-    // ── Client ──
+    // ── Client ──────────────────────────────────────────────────────────────
     if (userRole === 'client') {
       const clientProfile = userData?.clientProfile || {};
       const cases = clientProfile.cases || [];
-      const hasCase = cases.length > 0;
-      const shouldShowWaiting = !hasCase && !debugForceShowHome;
+      const flowStatus = userData?.flowStatus ?? 'normal';
+      // waiting screen ถ้า: ไม่มี case หรือ case อยู่ในสถานะ waiting_confirmation
+      const shouldShowWaiting = (cases.length === 0 || flowStatus === 'waiting_approval') && !debugForceShowHome;
 
-      // หน้า Waiting: แสดงแทนทุก page ถ้ายังไม่มี case
       if (shouldShowWaiting) {
         return (
-          <div className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center p-8 text-center font-sans">
-            <div className="w-24 h-24 rounded-full bg-blue-50 flex items-center justify-center mb-6">
-              <Timer className="w-12 h-12 text-[var(--color-accent-blue)] animate-pulse" />
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">ได้รับข้อมูลของคุณเรียบร้อยแล้ว</h1>
-            <p className="text-lg text-gray-600 max-w-md mb-8 leading-relaxed">
-              พี่ป๊อปกำลังพิจารณาและจัดสรรผู้ให้คำปรึกษาที่เหมาะสมกับคุณ
-              เราจะแจ้งเตือนคุณผ่านทางหน้าเพจ, เว็บไซต์ และ Google Calendar เมื่อตารางเวลาลงตัว
-            </p>
-            <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 max-w-lg mb-8">
-              <p className="text-amber-800 text-sm italic">"ระหว่างรอ... อย่าลืมใจดีกับตัวเองให้มากๆ นะครับ"</p>
-            </div>
-            <button
-              onClick={() => setDebugForceShowHome(true)}
-              className="flex items-center gap-2 text-sm text-gray-400 hover:text-[var(--color-accent-blue)] transition-colors"
-            >
-              เข้าสู่หน้าหลักชั่วคราว (เพื่อการทดสอบ) <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
+          <WaitingPage
+            userName={userData?.firstName ?? userData?.name ?? undefined}
+          />
         );
       }
 
@@ -243,6 +301,20 @@ export default function App() {
             onBook={() => { fetchClientData(); setCurrentPage('client-history'); }}
             onNavigateToHistory={() => setCurrentPage('client-history')}
             hasExistingBooking={hasUpcomingBooking}
+            userPhone={userData?.phoneNum ?? ''}
+            onPhoneUpdate={async (phone: string) => {
+              try {
+                await fetch(`${API_BASE_URL}/client/profile`, {
+                  method: 'PUT',
+                  headers: createHeaders(),
+                  body: JSON.stringify({
+                    name: `${userData?.firstName ?? ''} ${userData?.lastName ?? ''}`.trim(),
+                    phone,
+                  }),
+                });
+                setUserData((prev: any) => ({ ...prev, phoneNum: phone }));
+              } catch (e) { console.error(e); }
+            }}
           />
         );
         case 'client-history': return <ClientHistory appointments={appointments} />;
@@ -256,19 +328,18 @@ export default function App() {
               phone: userData.phoneNum || '-',
               enrollmentDate: userData.createdAt ? new Date(userData.createdAt).toLocaleDateString() : '-'
             }}
-            onSave={() => { }}
+            onSave={async (updated?: any) => {
+              if (updated?.phone) {
+                setUserData((prev: any) => ({ ...prev, phoneNum: updated.phone }));
+              }
+            }}
           />
         );
         default: return (
           <ClientHome
-            upcomingAppointments={appointments.filter(a => new Date(a.date) >= new Date()).map(a => ({
-              id: a.id,
-              date: a.date,
-              time: a.time,
-              counselor: a.counselor || ''
-            }))}
-            completedCount={appointments.filter(a => new Date(a.date) < new Date()).length}
-            counselorCount={new Set(appointments.map(a => a.counselor)).size}
+            upcomingAppointments={upcomingAppointments}
+            completedCount={completedCount}
+            counselorCount={counselorCount}
             onBookSession={() => setCurrentPage('client-booking')}
             onViewHistory={() => setCurrentPage('client-history')}
             hasExistingBooking={hasUpcomingBooking}
@@ -277,31 +348,56 @@ export default function App() {
       }
     }
 
-    // ── Counselor ──
+    // ── Counselor ────────────────────────────────────────────────────────────
     if (userRole === 'counselor') {
 
-      // approve waiting → เรียก API PATCH case status
-      const handleApproveWaiting = async (studentId: string) => {
+      const handleApproveWaiting = async (userId: string) => {
         try {
-          const res = await fetch(`${API_ENDPOINTS.USERS.ME.replace('/users/me', '')}/cases/${studentId}/appointment-status`, {
-            method: 'PATCH',
-            headers: createHeaders(),
-            body: JSON.stringify({ status: 'active' }),
+          // Fetch user detail เพื่อหา caseId ที่ waiting_confirmation
+          const r = await fetch(`${API_BASE_URL}/counselor/users`, { headers: createHeaders() });
+          if (!r.ok) { alert('ไม่พบข้อมูล'); return; }
+          const j = await r.json();
+          const users: any[] = j.data?.users ?? j.users ?? [];
+          const targetUser = users.find((u: any) => String(u.userId) === String(userId));
+
+          // ใช้ clientId ไป query cases
+          const clientId = targetUser?.clientId;
+          if (!clientId) { alert('ไม่พบข้อมูล client'); return; }
+
+          // fetch cases ของ client นี้
+          const caseRes = await fetch(`${API_BASE_URL}/cases/client/${clientId}`, { headers: createHeaders() }).catch(() => null);
+          let activeCaseId: number | null = null;
+
+          if (caseRes?.ok) {
+            const caseJson = await caseRes.json();
+            const cases: any[] = caseJson.data?.cases ?? caseJson.cases ?? [];
+            activeCaseId = cases.find((c: any) => c.status === 'waiting_confirmation')?.caseId ?? null;
+          }
+
+          if (!activeCaseId) {
+            // fallback: ใช้ caseId จาก waitingCases ที่อาจเก็บไว้
+            alert('ไม่พบ case ที่รอการยืนยัน กรุณา refresh แล้วลองใหม่');
+            return;
+          }
+
+          const res = await fetch(`${API_BASE_URL}/cases/${activeCaseId}/appointment-status`, {
+            method: 'PATCH', headers: createHeaders(),
+            body: JSON.stringify({ status: 'confirmed' }),
           });
-          if (res.ok) fetchCounselorData();
+          if (res.ok) {
+            // ลบออกจาก local state ทันที (ไม่ต้อง re-fetch ทั้งหมด)
+            setWaitingCases(prev => prev.filter((w: any) => String(w.id) !== String(userId)));
+            await fetchCounselorData();
+          }
+          else { const err = await res.json().catch(() => ({})); alert(err?.message || 'ยืนยันไม่สำเร็จ'); }
         } catch (e) { console.error(e); }
       };
 
-      // fetch report data จาก backend
       const handleFetchReport = async (from: string, to: string) => {
-        const res = await fetch(
-          `${API_BASE_URL}/counselor/report?startDate=${from}&endDate=${to}`,
-          { headers: createHeaders() }
-        );
+        const res = await fetch(`${API_BASE_URL}/counselor/report?startDate=${from}&endDate=${to}`, { headers: createHeaders() });
         if (!res.ok) throw new Error('ดึงข้อมูล report ไม่สำเร็จ');
         const json = await res.json();
         const d = json.data;
-        // Map backend format → ReportData
         return {
           period: { from, to },
           summary: {
@@ -309,7 +405,7 @@ export default function App() {
             completedSessions: d.sessionStats?.byStatus?.completed ?? 0,
             cancelledSessions: d.sessionStats?.byStatus?.cancelled ?? 0,
             newClients: d.userStats?.byRole?.client ?? 0,
-            averageWaitDays: d.caseStats?.byStatus?.waiting_confirmation ?? 0,
+            averageWaitDays: d.averageWaitDays ?? d.caseStats?.averageWaitDays ?? 0,
           },
           topTags: (d.topProblemTags ?? []).map((t: any) => ({ tag: t.label, count: t.count })),
           byDepartment: [],
@@ -318,42 +414,80 @@ export default function App() {
         };
       };
 
+      // สร้าง registration token → POST /api/counselor/tokens
+      // TODO: Uro ต้องเพิ่ม POST /api/counselor/tokens ใน counselorController+Routes
+      //       ให้ create RegistrationCode ใน DB แล้ว return { id, token/code, isUsed }
+      // ⚠️ NOTE FOR URO: ต้องเพิ่ม POST /api/counselor/tokens ใน counselorRoutes.ts
+      // Body: { code: string } → บันทึกลง RegistrationCode table
+      // ตอนนี้ถ้า endpoint ยังไม่มี token จะ save แค่ local state (หายตอน refresh)
+      const handleCreateToken = async (tokenCode: string) => {
+        try {
+          const res = await fetch(`${API_BASE_URL}/counselor/tokens`, {
+            method: 'POST',
+            headers: createHeaders(),
+            body: JSON.stringify({ code: tokenCode }),
+          });
+          if (res.ok) return res.json();
+          console.warn('POST /counselor/tokens ยังไม่มี endpoint → save local only');
+          return { success: true, code: tokenCode };
+        } catch (e) {
+          console.warn('handleCreateToken error:', e);
+          return { success: true, code: tokenCode };
+        }
+      };
+
       switch (currentPage) {
         case 'counselor-dashboard': return (
           <CounselorDashboard
-            waitingStudents={waitingClients.length > 0 ? waitingClients : undefined}
+            waitingStudents={waitingCases.length > 0 ? waitingCases : undefined}
             todayAppointments={counselorTodayAppointments.length > 0 ? counselorTodayAppointments : undefined}
-            totalCasesCount={128}
+            totalCasesCount={waitingCases.length}
             onScheduleAppointment={() => setCurrentPage('counselor-schedule')}
             onNavigateToReport={() => setCurrentPage('counselor-report')}
             onApproveWaiting={handleApproveWaiting}
+            onCreateToken={handleCreateToken}
           />
         );
-        case 'counselor-notes': return <CaseNotePage />;
+        case 'counselor-notes': return <CaseNotePage onSaveSuccess={() => setCurrentPage('counselor-notes')} />;
         case 'counselor-schedule': return (
           <ManageSchedule
             schedule={counselorSchedule}
             currentDate={scheduleDate}
             onScheduleChange={setCounselorSchedule}
             onDateChange={setScheduleDate}
+            currentCounselorId={userData?.counselorProfile?.counselorId ?? null}
           />
         );
-        case 'counselor-users': return <CounselorUserManagement />;
+        case 'counselor-users': return (
+          <CounselorUserManagement
+            onApprove={async (id) => { await handleApproveWaiting(id); fetchCounselorData(); }}
+            onRoleChange={async (id, newRole) => {
+              try {
+                await fetch(`${API_BASE_URL}/counselor/users/${id}/role`, {
+                  method: 'PATCH', headers: createHeaders(),
+                  body: JSON.stringify({ roleName: newRole }),
+                });
+                fetchCounselorData();
+              } catch (e) { console.error(e); }
+            }}
+          />
+        );
         case 'counselor-report': return <ReportGenerator onFetchReportData={handleFetchReport} />;
         default: return (
           <CounselorDashboard
-            waitingStudents={waitingClients.length > 0 ? waitingClients : undefined}
+            waitingStudents={waitingCases.length > 0 ? waitingCases : undefined}
             todayAppointments={counselorTodayAppointments.length > 0 ? counselorTodayAppointments : undefined}
-            totalCasesCount={128}
+            totalCasesCount={waitingCases.length}
             onScheduleAppointment={() => setCurrentPage('counselor-schedule')}
             onNavigateToReport={() => setCurrentPage('counselor-report')}
             onApproveWaiting={handleApproveWaiting}
+            onCreateToken={handleCreateToken}
           />
         );
       }
     }
 
-    // ── Admin ──
+    // ── Admin ────────────────────────────────────────────────────────────────
     if (userRole === 'admin') {
       const stats = adminStats || {
         totalUsers: 0, activeClients: 0, activeCounselors: 0,
@@ -368,7 +502,11 @@ export default function App() {
     }
   };
 
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center text-gray-500">กำลังตรวจสอบสิทธิ์...</div>;
+  if (isLoading) return (
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="w-8 h-8 border-2 border-green-400 border-t-transparent rounded-full animate-spin opacity-50" />
+    </div>
+  );
   if (appState === 'error') return (
     <div className="min-h-screen flex flex-col items-center justify-center p-10 text-center">
       <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
@@ -383,8 +521,19 @@ export default function App() {
       <Layout userRole={userRole} currentPage={currentPage} onNavigate={setCurrentPage} onLogout={handleLogout}>
         {renderContent()}
       </Layout>
-      {showUrgency && <UrgencyModal onSubmit={(text: string) => handleUrgencySubmit(text)} />}
-      {showPDPA && <PDPAModal onAccept={() => { localStorage.setItem('pdpa_accepted', 'true'); setShowPDPA(false); setShowToken(true); }} />}
+      {showUrgency && <UrgencyModal onSubmit={(level: string, details: string) => handleUrgencySubmit(level, details)} />}
+      {showPDPA && <PDPAModal onAccept={async () => {
+        try {
+          await fetch(`${API_BASE_URL}/users/accept-consent`, {
+            method: 'POST',
+            headers: createHeaders(),
+          });
+        } catch (e) {
+          console.warn('accept-consent failed:', e);
+        }
+        setShowPDPA(false);
+        setShowToken(true);
+      }} />}
       {showToken && <TokenModal onSubmit={handleTokenSubmit} />}
     </GoogleOAuthProvider>
   );

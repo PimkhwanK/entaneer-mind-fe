@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Clock, Home, Save, Hash, AlertCircle, User } from 'lucide-react';
-import { API_ENDPOINTS, getAuthHeader } from '../../config/api.config';
+import { API_ENDPOINTS, API_BASE_URL, getAuthHeader } from '../../config/api.config';
 
 export interface TimeBlock {
     day: string;
@@ -31,6 +31,7 @@ interface ManageScheduleProps {
     onScheduleChange: (updatedSchedule: TimeBlock[]) => void;
     onDateChange: (newDate: Date) => void;
     currentDate: Date;
+    currentCounselorId?: number | null;
 }
 
 const days = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์'];
@@ -57,7 +58,8 @@ export function ManageSchedule({
     schedule = [],
     onScheduleChange,
     onDateChange,
-    currentDate
+    currentDate,
+    currentCounselorId,
 }: ManageScheduleProps) {
     const [rooms, setRooms] = useState<AvailableRooms[]>([]);
     const [selectedRoomId, setSelectedRoomId] = useState<string>('');
@@ -79,14 +81,14 @@ export function ManageSchedule({
 
     const fetchCounselors = async () => {
         try {
-            const base = API_ENDPOINTS.USERS.ME.replace('/users/me', '');
-            const res = await fetch(`${base}/users?role=counselor`, {
+            const res = await fetch(`${API_BASE_URL}/counselor/counselors`, {
                 headers: getAuthHeader(),
             });
             if (!res.ok) return;
 
             const data = await res.json();
-            const list: any[] = Array.isArray(data) ? data : (data.users || data.counselors || []);
+            // Backend returns { success, data: { counselors: [...] } } or array
+            const list: any[] = Array.isArray(data) ? data : (data.data?.counselors ?? data.counselors ?? []);
             setCounselors(
                 list.map((u: any) => ({
                     userId: u.userId,
@@ -109,8 +111,12 @@ export function ManageSchedule({
             const data = await res.json();
             setRooms(data);
 
+            // auto-select ห้องของ counselor ตัวเอง (match counselorId)
             if (!selectedRoomId && data.length > 0) {
-                setSelectedRoomId(data[0].id);
+                const myRoom = currentCounselorId
+                    ? data.find((r: AvailableRooms) => r.counselorId === currentCounselorId)
+                    : null;
+                setSelectedRoomId(myRoom ? myRoom.id : data[0].id);
             }
         } catch (e) {
             console.error(e);
@@ -160,7 +166,7 @@ export function ManageSchedule({
         fetchRooms();
         fetchCounselors();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [currentCounselorId]);
 
     useEffect(() => {
         if (selectedRoomId) fetchSchedule(selectedRoomId);
@@ -348,10 +354,17 @@ export function ManageSchedule({
                     >
                         {rooms.map((room) => (
                             <option key={room.id} value={room.id}>
-                                {room.name}
+                                {room.name}{currentCounselorId && room.counselorId === currentCounselorId ? ' ★' : ''}
                             </option>
                         ))}
                     </select>
+
+                    {/* badge ห้องของฉัน */}
+                    {selectedRoom && currentCounselorId && selectedRoom.counselorId === currentCounselorId && (
+                        <div className="mt-2 px-3 py-1.5 bg-green-50 border border-green-100 rounded-xl">
+                            <p className="text-xs font-bold text-green-600">★ ห้องของคุณ</p>
+                        </div>
+                    )}
 
                     {selectedRoomId && (
                         <div className="mt-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
@@ -580,8 +593,8 @@ export function ManageSchedule({
                                     const statusClass = isBooked
                                         ? 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100 cursor-pointer'
                                         : isAvailable
-                                          ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100 cursor-pointer'
-                                          : 'bg-gray-50 border-gray-200 text-gray-400 hover:bg-gray-100 cursor-pointer';
+                                            ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100 cursor-pointer'
+                                            : 'bg-gray-50 border-gray-200 text-gray-400 hover:bg-gray-100 cursor-pointer';
 
                                     return (
                                         <td key={day} className="p-2">

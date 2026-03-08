@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Search, UserPlus, UserCheck, UserMinus, Shield, User,
     Key, CheckCircle, XCircle, X, Eye, EyeOff, AlertCircle
 } from 'lucide-react';
+import { API_BASE_URL, getAuthHeader } from '../../config/api.config';
 
 // ── Types ──────────────────────────────────────────────────────
 type UserRole = 'client' | 'counselor';
@@ -81,10 +82,46 @@ export function CounselorUserManagement({
     onAddUser,
 }: CounselorUserManagementProps) {
 
-    const [users, setUsers] = useState<ManagedUser[]>(initialUsers || MOCK_USERS);
+    const [users, setUsers] = useState<ManagedUser[]>(initialUsers || []);
+    const [isLoadingUsers, setIsLoadingUsers] = useState(!initialUsers);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterRole, setFilterRole] = useState<'all' | UserRole>('all');
     const [filterStatus, setFilterStatus] = useState<'all' | UserStatus>('all');
+
+    // Fetch users จาก backend จริง
+    useEffect(() => {
+        if (initialUsers) return;
+        const fetchUsers = async () => {
+            setIsLoadingUsers(true);
+            try {
+                const res = await fetch(`${API_BASE_URL}/counselor/users`, {
+                    headers: getAuthHeader(),
+                });
+                if (!res.ok) throw new Error('Failed to fetch');
+                const json = await res.json();
+                // Backend: { success, data: { users: [...] } }
+                const raw: any[] = json.data?.users ?? json.users ?? [];
+                const mapped: ManagedUser[] = raw.map((u: any) => ({
+                    id: String(u.userId),
+                    firstName: u.firstName ?? '',
+                    lastName: u.lastName ?? '',
+                    cmuAccount: u.cmuAccount ?? '',
+                    role: (u.roleName === 'counselor' ? 'counselor' : 'client') as UserRole,
+                    status: 'active' as UserStatus,
+                    createdAt: u.createdAt?.split('T')[0] ?? '',
+                    department: u.clientProfile?.department ?? u.department ?? '',
+                    counselorNumber: u.counselorProfile?.counselorNumber ?? u.counselorNumber ?? '',
+                }));
+                setUsers(mapped);
+            } catch (e) {
+                console.error('fetchUsers failed, using mock:', e);
+                setUsers(MOCK_USERS);
+            } finally {
+                setIsLoadingUsers(false);
+            }
+        };
+        fetchUsers();
+    }, [initialUsers]);
 
     // Modal State
     const [showAddModal, setShowAddModal] = useState(false);
@@ -118,10 +155,50 @@ export function CounselorUserManagement({
         setUsers(prev => prev.map(u => u.id === id ? { ...u, status: 'suspended' } : u));
     };
 
-    const handleRoleChange = (id: string, newRole: UserRole) => {
+    const handleRoleChange = async (id: string, newRole: UserRole) => {
         if (!window.confirm(`ต้องการเปลี่ยน role เป็น "${newRole}" ใช่หรือไม่?`)) return;
-        onRoleChange?.(id, newRole);
+
+        // optimistic update ทันที
         setUsers(prev => prev.map(u => u.id === id ? { ...u, role: newRole } : u));
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/counselor/users/${id}/role`, {
+                method: 'PATCH',
+                headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ roleName: newRole }),
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                alert(err?.message || 'เปลี่ยน role ไม่สำเร็จ');
+                // revert
+                setUsers(prev => prev.map(u => u.id === id ? { ...u, role: newRole === 'client' ? 'counselor' : 'client' } : u));
+                return;
+            }
+
+            // re-fetch เพื่อ sync จาก DB จริง
+            const json = await fetch(`${API_BASE_URL}/counselor/users`, { headers: getAuthHeader() }).then(r => r.json());
+            const raw: any[] = json.data?.users ?? json.users ?? [];
+            setUsers(raw.map((u: any) => ({
+                id: String(u.userId),
+                firstName: u.firstName ?? '',
+                lastName: u.lastName ?? '',
+                cmuAccount: u.cmuAccount ?? '',
+                role: (u.roleName === 'counselor' ? 'counselor' : 'client') as UserRole,
+                status: 'active' as UserStatus,
+                createdAt: u.createdAt?.split('T')[0] ?? '',
+                department: u.clientProfile?.department ?? u.department ?? '',
+                counselorNumber: u.counselorProfile?.counselorNumber ?? u.counselorNumber ?? '',
+            })));
+
+            // notify parent ด้วย (optional)
+            onRoleChange?.(id, newRole);
+
+        } catch (e) {
+            console.error('handleRoleChange error:', e);
+            alert('เกิดข้อผิดพลาด กรุณาลองใหม่');
+            setUsers(prev => prev.map(u => u.id === id ? { ...u, role: newRole === 'client' ? 'counselor' : 'client' } : u));
+        }
     };
 
     const handleSubmitAddUser = async (e: React.FormEvent) => {
@@ -129,12 +206,16 @@ export function CounselorUserManagement({
         setSubmitError('');
 
         // Validation
-        if (!form.cmuAccount.trim()) {
-            setSubmitError('กรุณากรอก CMU Account');
+        if (!form.firstName.trim() || !form.lastName.trim() || !form.cmuAccount.trim()) {
+            setSubmitError('กรุณากรอกข้อมูลให้ครบถ้วน');
             return;
         }
         if (!form.cmuAccount.includes('@')) {
             setSubmitError('รูปแบบ CMU Account ไม่ถูกต้อง');
+            return;
+        }
+        if (form.role === 'client' && !form.department.trim()) {
+            setSubmitError('กรุณาระบุคณะ/ภาควิชาสำหรับนักศึกษา');
             return;
         }
 
@@ -183,6 +264,17 @@ export function CounselorUserManagement({
             : s === 'pending'
                 ? <AlertCircle className="w-4 h-4 text-orange-500" />
                 : <XCircle className="w-4 h-4 text-red-500" />;
+
+    if (isLoadingUsers) {
+        return (
+            <div className="flex items-center justify-center h-64 text-gray-400">
+                <div className="text-center">
+                    <div className="w-8 h-8 border-2 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                    <p className="text-sm">กำลังโหลดข้อมูลผู้ใช้...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="p-8 max-w-7xl mx-auto font-sans">
@@ -431,15 +523,41 @@ export function CounselorUserManagement({
                                                 }`}
                                         >
                                             {r === 'counselor' ? <Shield className="w-4 h-4" /> : <User className="w-4 h-4" />}
-                                            {r === 'client' ? 'Client (นักศึกษา/บุคลากร)' : 'Counselor'}
+                                            {r === 'client' ? 'Client (นักศึกษา)' : 'Counselor'}
                                         </button>
                                     ))}
                                 </div>
                             </div>
 
-                            {/* CMU Account — ใส่อย่างเดียวพอ */}
+                            {/* ชื่อ-นามสกุล */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อ</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={form.firstName}
+                                        onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))}
+                                        className="w-full px-4 py-3 rounded-2xl border border-[var(--color-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-green)]"
+                                        placeholder="ชื่อ"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">นามสกุล</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={form.lastName}
+                                        onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
+                                        className="w-full px-4 py-3 rounded-2xl border border-[var(--color-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-green)]"
+                                        placeholder="นามสกุล"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* CMU Account */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">CMU Account <span className="text-red-500">*</span></label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">CMU Account</label>
                                 <input
                                     type="text"
                                     required
@@ -450,31 +568,62 @@ export function CounselorUserManagement({
                                 />
                             </div>
 
-                            {/* ความเร่งด่วน (เฉพาะ client) */}
+                            {/* Fields เฉพาะ Client */}
                             {form.role === 'client' && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        ระดับความเร่งด่วน <span className="text-red-500">*</span>
-                                    </label>
-                                    <div className="flex gap-3">
-                                        {(['low', 'medium', 'high'] as const).map(p => (
-                                            <button
-                                                key={p}
-                                                type="button"
-                                                onClick={() => setForm(f => ({ ...f, priority: p }))}
-                                                className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${form.priority === p
-                                                    ? p === 'high'
-                                                        ? 'bg-red-500 text-white'
-                                                        : p === 'medium'
-                                                            ? 'bg-yellow-400 text-white'
-                                                            : 'bg-green-500 text-white'
-                                                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                                                    }`}
-                                            >
-                                                {p === 'high' ? '🔴 เร่งด่วนมาก' : p === 'medium' ? '🟡 ปานกลาง' : '🟢 ปกติ'}
-                                            </button>
-                                        ))}
+                                <>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            คณะ/ภาควิชา <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={form.department}
+                                            onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
+                                            className="w-full px-4 py-3 rounded-2xl border border-[var(--color-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-green)]"
+                                            placeholder="เช่น วิศวกรรมคอมพิวเตอร์"
+                                        />
                                     </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            ระดับความเร่งด่วน
+                                        </label>
+                                        <div className="flex gap-3">
+                                            {(['low', 'medium', 'high'] as const).map(p => (
+                                                <button
+                                                    key={p}
+                                                    type="button"
+                                                    onClick={() => setForm(f => ({ ...f, priority: p }))}
+                                                    className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${form.priority === p
+                                                        ? p === 'high'
+                                                            ? 'bg-red-500 text-white'
+                                                            : p === 'medium'
+                                                                ? 'bg-yellow-400 text-white'
+                                                                : 'bg-green-500 text-white'
+                                                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                                        }`}
+                                                >
+                                                    {p === 'high' ? 'เร่งด่วนมาก' : p === 'medium' ? 'ปานกลาง' : 'ปกติ'}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Fields เฉพาะ Counselor */}
+                            {form.role === 'counselor' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        หมายเลข Counselor (ถ้ามี)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={form.counselorNumber}
+                                        onChange={e => setForm(f => ({ ...f, counselorNumber: e.target.value }))}
+                                        className="w-full px-4 py-3 rounded-2xl border border-[var(--color-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-green)] font-mono"
+                                        placeholder="เช่น C-003"
+                                    />
                                 </div>
                             )}
 
