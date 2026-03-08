@@ -112,20 +112,23 @@ export default function App() {
     } catch (e) { console.error(e); }
 
     try {
-      // ดึง waiting clients จาก /counselor/users - filter caseStats.active > 0
-      const res = await fetch(`${API_BASE_URL}/counselor/users`, { headers: createHeaders() });
+      // ดึง waiting clients จาก /counselor/users
+      // getAllUsers ส่งมาในรูป { success, data: { summary, users: [...] } }
+      // แต่ละ client user มี waitingCaseId ที่ backend เพิ่มให้แล้ว
+      const res = await fetch(`${API_BASE_URL}/counselor/users?role=client`, { headers: createHeaders() });
       if (res.ok) {
         const json = await res.json();
         const users: any[] = json.data?.users ?? json.users ?? [];
         const waiting = users
-          .filter((u: any) => u.roleName === 'client' && (u.caseStats?.active ?? 0) > 0)
+          .filter((u: any) => u.waitingCaseId != null)
           .map((u: any) => ({
             id: String(u.userId),
-            name: u.name ?? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim(),
+            name: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim(),
             waitingSince: u.createdAt
-              ? new Date(u.createdAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+              ? new Date(u.createdAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
               : '-',
             urgency: 'medium' as const,
+            caseId: u.waitingCaseId,
             caseStats: u.caseStats,
           }));
         setWaitingCases(waiting);
@@ -276,11 +279,7 @@ export default function App() {
       const shouldShowWaiting = (cases.length === 0 || flowStatus === 'waiting_approval') && !debugForceShowHome;
 
       if (shouldShowWaiting) {
-        return (
-          <WaitingPage
-            userName={userData?.firstName ?? userData?.name ?? undefined}
-          />
-        );
+        return null; // จะ render WaitingPage นอก Layout แทน
       }
 
       switch (currentPage) {
@@ -353,29 +352,11 @@ export default function App() {
 
       const handleApproveWaiting = async (userId: string) => {
         try {
-          // Fetch user detail เพื่อหา caseId ที่ waiting_confirmation
-          const r = await fetch(`${API_BASE_URL}/counselor/users`, { headers: createHeaders() });
-          if (!r.ok) { alert('ไม่พบข้อมูล'); return; }
-          const j = await r.json();
-          const users: any[] = j.data?.users ?? j.users ?? [];
-          const targetUser = users.find((u: any) => String(u.userId) === String(userId));
-
-          // ใช้ clientId ไป query cases
-          const clientId = targetUser?.clientId;
-          if (!clientId) { alert('ไม่พบข้อมูล client'); return; }
-
-          // fetch cases ของ client นี้
-          const caseRes = await fetch(`${API_BASE_URL}/cases/client/${clientId}`, { headers: createHeaders() }).catch(() => null);
-          let activeCaseId: number | null = null;
-
-          if (caseRes?.ok) {
-            const caseJson = await caseRes.json();
-            const cases: any[] = caseJson.data?.cases ?? caseJson.cases ?? [];
-            activeCaseId = cases.find((c: any) => c.status === 'waiting_confirmation')?.caseId ?? null;
-          }
+          // ใช้ caseId ที่เก็บไว้ใน waitingCases แล้วตั้งแต่ตอน fetch
+          const target = waitingCases.find((w: any) => String(w.id) === String(userId));
+          const activeCaseId = target?.caseId ?? null;
 
           if (!activeCaseId) {
-            // fallback: ใช้ caseId จาก waitingCases ที่อาจเก็บไว้
             alert('ไม่พบ case ที่รอการยืนยัน กรุณา refresh แล้วลองใหม่');
             return;
           }
@@ -385,7 +366,6 @@ export default function App() {
             body: JSON.stringify({ status: 'confirmed' }),
           });
           if (res.ok) {
-            // ลบออกจาก local state ทันที (ไม่ต้อง re-fetch ทั้งหมด)
             setWaitingCases(prev => prev.filter((w: any) => String(w.id) !== String(userId)));
             await fetchCounselorData();
           }
@@ -448,7 +428,7 @@ export default function App() {
             onCreateToken={handleCreateToken}
           />
         );
-        case 'counselor-notes': return <CaseNotePage onSaveSuccess={() => setCurrentPage('counselor-notes')} />;
+        case 'counselor-notes': return <CaseNotePage />;
         case 'counselor-schedule': return (
           <ManageSchedule
             schedule={counselorSchedule}
@@ -515,6 +495,21 @@ export default function App() {
     </div>
   );
   if (appState === 'landing') return <LandingPage onLoginSuccess={() => { window.location.href = API_ENDPOINTS.AUTH.CMU_ENTRANCE; }} />;
+
+  // WaitingPage — render นอก Layout (ไม่มี navbar)
+  if (userRole === 'client' && !showUrgency && !showPDPA && !showToken) {
+    const clientProfile = userData?.clientProfile || {};
+    const cases = clientProfile?.cases || [];
+    const flowStatus = userData?.flowStatus ?? 'normal';
+    const shouldShowWaiting = (cases.length === 0 || flowStatus === 'waiting_approval') && !debugForceShowHome;
+    if (shouldShowWaiting) {
+      return (
+        <WaitingPage
+          userName={userData?.firstName ?? userData?.name ?? undefined}
+        />
+      );
+    }
+  }
 
   return (
     <GoogleOAuthProvider clientId="633019458862-cfrtd22t900o6595dqou4v9os1ba800q.apps.googleusercontent.com">

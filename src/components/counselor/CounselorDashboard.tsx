@@ -141,17 +141,8 @@ export function CounselorDashboard({
                     }));
                 setTodayAppointmentsData(mapped);
 
-                const waiting: WaitingStudent[] = sessions
-                    .filter((s: any) => s.status === 'booked' && s.case)
-                    .map((s: any) => ({
-                        id: String(s.case.caseId),
-                        name: s.case.client?.name ?? '-',
-                        waitingSince: s.timeStart
-                            ? new Date(s.timeStart).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
-                            : '-',
-                        urgency: s.case.priority === 'high' ? 'high' : s.case.priority === 'low' ? 'low' : 'medium'
-                    }));
-                setWaitingStudentsData(waiting);
+                // ไม่ override waitingStudentsData จาก schedule เพราะ schedule เป็น booked sessions
+                // waitingStudentsData มาจาก props (App.tsx fetch /counselor/users ที่มี waitingCaseId)
 
                 const stats = json.data.stats;
                 setTotalCasesData((stats.booked ?? 0) + (stats.completed ?? 0));

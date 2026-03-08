@@ -89,6 +89,8 @@ export const API_ENDPOINTS = {
             `${API_BASE_URL}/sessions/${encodeURIComponent(String(sessionId))}/case-note`,
         GET_CASE_NOTE_BY_CODE: (caseCode: string) =>
             `${API_BASE_URL}/sessions/case-note/by-code/${encodeURIComponent(caseCode)}`,
+        EDIT_HISTORY: (sessionId: number) =>
+            `${API_BASE_URL}/sessions/${sessionId}/edit-history`,
     },
 
     /* ================= PROBLEM TAGS ================= */
