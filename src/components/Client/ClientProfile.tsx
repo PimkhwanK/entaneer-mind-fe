@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { User, Mail, Phone, Calendar, Save, Edit, Camera } from 'lucide-react';
+import { useState } from 'react';
+import { User, Mail, Phone, Calendar, Save, Edit } from 'lucide-react';
 
 interface ClientProfileProps {
     profile: {
@@ -9,7 +9,6 @@ interface ClientProfileProps {
         clientId: string;
         department: string;
         enrollmentDate: string;
-        avatarUrl?: string; // Added field
     };
     onSave: (profile: any) => void;
 }
@@ -17,61 +16,14 @@ interface ClientProfileProps {
 export function ClientProfile({ profile: initialProfile, onSave }: ClientProfileProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [profile, setProfile] = useState(initialProfile);
-    
-    const fileUploadRef = useRef<HTMLInputElement>(null);
 
     const handleSave = () => {
         onSave(profile);
         setIsEditing(false);
     };
 
-    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        try{
-            const file = e.target.files?.[0];
-        
-            if (file) {
-                // In a real app, you'd upload this to a server
-                // For previewing, we use a local Object URL
-                const previewUrl = URL.createObjectURL(file);
-                setProfile({ ...profile, avatarUrl: previewUrl });
-            }
-            
-            /*
-            const formData = new FormData();
-
-            formData.append('name', profile.name);
-            formData.append('email', profile.email);
-            formData.append('phone', profile.phone);
-            formData.append('department', profile.department);
-            formData.append('avatarUrl', URL.createObjectURL(file));
-
-            const response = await fetch ("",{
-                method: "post",
-                body: formData
-            });
-
-            if (response.ok){
-                const updatedProfile = await response.json();
-                onSave(updatedProfile);
-                setIsEditing(false);
-            }
-            */
-
-        }catch(error){
-            console.error("Failed to update profile:", error);
-        }      
-    };
-
-    
-    const handleUploaderfile = (e: React.FormEvent) => {
-        e.preventDefault()
-        if (isEditing) {
-            fileUploadRef.current?.click();
-        }
-    };
-
     return (
-        <div  className="p-8 max-w-4xl mx-auto">
+        <div className="p-8 max-w-4xl mx-auto">
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h1 className="mb-2">{/*My Profile*/}{'โปรไฟล์ของฉัน'}</h1>
@@ -93,39 +45,7 @@ export function ClientProfile({ profile: initialProfile, onSave }: ClientProfile
                 <div className="bg-gradient-to-br from-[var(--color-accent-blue)] to-[var(--color-accent-green)] p-8 text-white">
                     <div className="flex items-center gap-6">
                         <div className="w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                            {/* insert img section*/}
-
-
-                            <div 
-                            className={`relative w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center overflow-hidden border-2 border-white/30 ${isEditing ? 'cursor-pointer hover:border-white transition-all' : ''}`}
-                            onClick={handleUploaderfile}
-                        >
-                            {profile.avatarUrl ? (
-                                <img 
-                                    src={profile.avatarUrl} 
-                                    alt="Profile" 
-                                    className="w-full h-full object-cover"
-                                />
-                            ) : (
-                                <User className="w-12 h-12 text-white/50" />
-                            )}
-                            
-                            {isEditing && (
-                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                    <Camera className="w-6 h-6 text-white" />
-                                </div>
-                            )}
-                            
-                            <input 
-                                type="file"
-                                ref={fileUploadRef}
-                                className="hidden"
-                                accept="image/*"
-                                onChange={handleImageChange}
-                            />
-                            </div>
-
- 
+                            <User className="w-12 h-12 text-white/80" />
                         </div>
                         <div>
                             <h2 className="text-white mb-1">{profile.name}</h2>
@@ -258,7 +178,7 @@ export function ClientProfile({ profile: initialProfile, onSave }: ClientProfile
                 </p>
             </div>
 
-            
+
 
         </div>
     );

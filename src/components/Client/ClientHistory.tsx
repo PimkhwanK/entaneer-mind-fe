@@ -1,95 +1,43 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Calendar, Clock, User, Search, Filter, XCircle } from 'lucide-react';
-import { API_ENDPOINTS, getAuthHeader } from '../../config/api.config';
 
 interface Appointment {
-    id: string; // sessionId as string
+    id: string;
     date: string;
     time: string;
     counselor: string;
     status: 'upcoming' | 'completed' | 'cancelled';
     notes?: string;
-
-    // raw
-    timeStartISO?: string | null;
     sessionToken?: string;
 }
 
 interface ClientHistoryProps {
-    appointments?: Appointment[]; // keep compatible with App.tsx
+    appointments: Appointment[];
     onCancelAppointment?: (id: string) => void;
 }
 
-function formatThaiDate(iso: string) {
-    return new Date(iso).toLocaleDateString('th-TH', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-    });
-}
-
-function formatTimeHM(iso: string) {
-    return new Date(iso).toLocaleTimeString('th-TH', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-    });
-}
-
-export function ClientHistory({ appointments: initialAppointments = [], onCancelAppointment }: ClientHistoryProps) {
+export function ClientHistory({ appointments: initialAppointments, onCancelAppointment }: ClientHistoryProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | 'upcoming' | 'completed' | 'cancelled'>('all');
-    const [loading, setLoading] = useState(true);
 
-    const [localAppointments, setLocalAppointments] = useState<Appointment[]>(initialAppointments);
-
-    const fetchHistory = async () => {
-        try {
-            setLoading(true);
-            const res = await fetch(API_ENDPOINTS.SESSIONS.HISTORY, { headers: getAuthHeader() });
-            if (!res.ok) throw new Error(await res.text());
-
-            const data = await res.json();
-
-            const mapped: Appointment[] = (data.appointments || []).map((a: any) => {
-                const iso = a.timeStart as string | null;
-                return {
-                    id: String(a.sessionId ?? a.id),
-                    date: iso ? formatThaiDate(iso) : '—',
-                    time: iso ? formatTimeHM(iso) : '—',
-                    counselor: a.counselor || '—',
-                    status: a.status,
-                    notes: a.notes || '—',
-                    timeStartISO: iso,
-                    sessionToken: a.sessionToken || '—',
-                };
-            });
-
-            setLocalAppointments(mapped);
-        } catch (e) {
-            console.error(e);
-            // fallback to whatever was passed
-            setLocalAppointments(initialAppointments);
-        } finally {
-            setLoading(false);
+    // deduplicate: ถ้า id เดียวกัน ให้ prefer cancelled มากกว่า upcoming
+    const [localAppointments, setLocalAppointments] = useState<Appointment[]>(() => {
+        const deduped = new Map<string, Appointment>();
+        for (const apt of initialAppointments) {
+            const existing = deduped.get(apt.id);
+            if (!existing || apt.status === 'cancelled') {
+                deduped.set(apt.id, apt);
+            }
         }
-    };
+        return Array.from(deduped.values());
+    });
 
-    useEffect(() => {
-        fetchHistory();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    const filteredAppointments = useMemo(() => {
-        return localAppointments.filter((apt) => {
-            const matchesSearch =
-                apt.counselor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                apt.date.toLowerCase().includes(searchTerm.toLowerCase());
-
-            const matchesFilter = filterStatus === 'all' || apt.status === filterStatus;
-            return matchesSearch && matchesFilter;
-        });
-    }, [localAppointments, searchTerm, filterStatus]);
+    const filteredAppointments = localAppointments.filter((apt) => {
+        const matchesSearch = apt.counselor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            apt.date.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesFilter = filterStatus === 'all' || apt.status === filterStatus;
+        return matchesSearch && matchesFilter;
+    });
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -100,31 +48,13 @@ export function ClientHistory({ appointments: initialAppointments = [], onCancel
         }
     };
 
-    const handleCancel = async (id: string) => {
-        if (!window.confirm('คุณต้องการยกเลิกนัดหมายนี้ใช่หรือไม่?')) return;
-
-        try {
-            // optional callback
+    const handleCancel = (id: string) => {
+        if (window.confirm('คุณต้องการยกเลิกนัดหมายนี้ใช่หรือไม่?')) {
+            // เรียกฟังก์ชันจาก props (ถ้ามี)
             onCancelAppointment?.(id);
 
-            const sessionId = Number(id);
-            const res = await fetch(API_ENDPOINTS.SESSIONS.CANCEL(sessionId), {
-                method: 'POST',
-                headers: getAuthHeader(),
-            });
-
-            if (!res.ok) throw new Error(await res.text());
-
-            // update UI instantly to cancelled
-            setLocalAppointments(prev =>
-                prev.map(a => (a.id === id ? { ...a, status: 'cancelled' } : a))
-            );
-
-            // refresh from backend (so status matches derived logic)
-            await fetchHistory();
-        } catch (e: any) {
-            console.error(e);
-            alert(e?.message || 'ยกเลิกไม่สำเร็จ');
+            // ลบข้อมูลออกจาก List ทันทีเพื่อให้ "หายไป" ตามที่ต้องการ
+            setLocalAppointments(prev => prev.filter(apt => apt.id !== id));
         }
     };
 
@@ -188,22 +118,15 @@ export function ClientHistory({ appointments: initialAppointments = [], onCancel
                                     </div>
                                 </th>
                                 <th className="px-6 py-4 text-left">Status</th>
-                                <th className="px-6 py-4 text-left">Notes</th>
                                 <th className="px-6 py-4 text-left">Session Token</th>
+                                <th className="px-6 py-4 text-left">Notes</th>
                                 <th className="px-6 py-4 text-center">Action</th>
                             </tr>
                         </thead>
-
                         <tbody>
-                            {loading ? (
+                            {filteredAppointments.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-12 text-center text-gray-400">
-                                        กำลังโหลดข้อมูล...
-                                    </td>
-                                </tr>
-                            ) : filteredAppointments.length === 0 ? (
-                                <tr>
-                                    <td colSpan={7} className="px-6 py-12 text-center">
+                                    <td colSpan={6} className="px-6 py-12 text-center">
                                         <Calendar className="w-12 h-12 mx-auto mb-3 text-[var(--color-border)]" />
                                         <p>No sessions found</p>
                                         <p className="text-sm text-[var(--color-text-secondary)] mt-1">
@@ -232,11 +155,11 @@ export function ClientHistory({ appointments: initialAppointments = [], onCancel
                                                 {apt.status}
                                             </span>
                                         </td>
+                                        <td className="px-6 py-4 text-[var(--color-text-secondary)] font-mono text-xs">
+                                            {apt.sessionToken || '—'}
+                                        </td>
                                         <td className="px-6 py-4 text-[var(--color-text-secondary)] max-w-xs truncate">
                                             {apt.notes || '—'}
-                                        </td>
-                                        <td className="px-6 py-4 text-[var(--color-text-secondary)] font-mono">
-                                            {apt.sessionToken || '—'}
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             {apt.status === 'upcoming' && (
@@ -253,7 +176,6 @@ export function ClientHistory({ appointments: initialAppointments = [], onCancel
                                 ))
                             )}
                         </tbody>
-
                     </table>
                 </div>
             </div>

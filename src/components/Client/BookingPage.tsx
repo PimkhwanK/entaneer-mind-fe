@@ -1,10 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     Calendar, Clock, User, ChevronLeft, ChevronRight, X,
-    Bell, Info, Phone, ArrowRight
+    Info, Phone, Hash, ArrowRight
 } from 'lucide-react';
-import { useGoogleLogin } from '@react-oauth/google';
-
 import { API_ENDPOINTS, getAuthHeader } from '../../config/api.config';
 
 interface TimeSlot {
@@ -23,9 +21,6 @@ interface BookingPageProps {
     onBook: (date: string, time: string, details: any) => void;
     onNavigateToHistory: () => void;
     hasExistingBooking?: boolean;
-
-    userPhone?: string;
-    onPhoneUpdate?: (phone: string) => Promise<void>;
 
     // keep it for compatibility (but we won’t use mock)
     schedule?: TimeSlot[];
@@ -49,8 +44,6 @@ export function BookingPage({
     onBook,
     onNavigateToHistory,
     hasExistingBooking = false,
-    userPhone = '',
-    onPhoneUpdate,
     schedule = [],
 }: BookingPageProps) {
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -59,21 +52,11 @@ export function BookingPage({
     const [showDescriptionModal, setShowDescriptionModal] = useState(false);
 
     const [studentInfo, setStudentInfo] = useState({
-        phone: userPhone || '',
-        description: '',
         studentId: '',
+        faculty: '',
+        phone: '',
+        description: ''
     });
-    // Pre-fill phone when userPhone prop changes
-    const prevPhone = React.useRef(userPhone);
-    React.useEffect(() => {
-        if (userPhone && userPhone !== prevPhone.current) {
-            prevPhone.current = userPhone;
-            setStudentInfo(prev => ({ ...prev, phone: userPhone }));
-        }
-    }, [userPhone]);
-
-    const [syncWithGoogle, setSyncWithGoogle] = useState(false);
-    const [googleToken, setGoogleToken] = useState<string | null>(null);
 
     // ---- DB data ----
     const [counselorRooms, setCounselorRooms] = useState<CounselorRoom[]>([]);
@@ -166,74 +149,25 @@ export function BookingPage({
         })();
     }, [selectedDate, selectedCounselor, counselorData]);
 
+    const handleStudentIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value.replace(/\D/g, '');
+        if (value.length <= 9) {
+            setStudentInfo({ ...studentInfo, studentId: value });
+        }
+    };
+
     const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value.replace(/\D/g, '');
         if (value.length <= 10) {
             setStudentInfo({ ...studentInfo, phone: value });
-            // บันทึก phone ไป backend ทันทีที่ครบ 10 หลัก
-            if (value.length === 10 && onPhoneUpdate) {
-                onPhoneUpdate(value).catch(console.error);
-            }
         }
     };
 
-    const createGoogleEvent = async (
-        date: Date,
-        time: string,
-        info: any,
-        counselorName: string,
-        counselorEmail: string | null
-    ) => {
-        if (!counselorEmail) throw new Error('Missing counselor email');
-
-        const [hours, minutes] = time.split(':');
-        const startDateTime = new Date(date);
-        startDateTime.setHours(parseInt(hours), parseInt(minutes), 0);
-
-        const endDateTime = new Date(startDateTime);
-        endDateTime.setHours(startDateTime.getHours() + 1);
-
-        const event = {
-            summary: `นัดหมายปรึกษา: ${counselorName} (Entaneer Mind)`,
-            description: `เบอร์โทร: ${info.phone}\nเรื่องที่ปรึกษา: ${info.description}`,
-            start: { dateTime: startDateTime.toISOString(), timeZone: 'Asia/Bangkok' },
-            end: { dateTime: endDateTime.toISOString(), timeZone: 'Asia/Bangkok' },
-            attendees: [{ email: counselorEmail }],
-            reminders: {
-                useDefault: false,
-                overrides: [
-                    { method: 'email', minutes: 1440 },
-                    { method: 'popup', minutes: 30 },
-                ],
-            },
-        };
-
-        const response = await fetch(
-            'https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=all',
-            {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${googleToken}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(event),
-            }
-        );
-
-        if (!response.ok) throw new Error('Failed to create Google event');
-        const data = await response.json();
-        return data.id as string;
-    };
-
-    const loginToGoogle = useGoogleLogin({
-        onSuccess: (tokenResponse) => {
-            setGoogleToken(tokenResponse.access_token);
-            setSyncWithGoogle(true);
-        },
-        scope: 'https://www.googleapis.com/auth/calendar.events',
-    });
-
     const handleBooking = async () => {
+        if (studentInfo.studentId.length !== 9) {
+            alert('รหัสประจำตัวต้องมี 9 หลัก');
+            return;
+        }
         if (studentInfo.phone.length !== 10) {
             alert('เบอร์โทรศัพท์ต้องมี 10 หลัก');
             return;
@@ -243,36 +177,15 @@ export function BookingPage({
             return;
         }
 
-        let googleEventId: string | null = null;
-
-        if (syncWithGoogle && googleToken) {
-            try {
-                const email =
-                    selectedSlot.counselorEmail ??
-                    counselorData[selectedCounselor]?.email ??
-                    null;
-
-                googleEventId = await createGoogleEvent(
-                    selectedDate,
-                    selectedSlot.time,
-                    studentInfo,
-                    selectedCounselor,
-                    email
-                );
-            } catch (error) {
-                console.error('Google Sync Error:', error);
-            }
-        }
-
         try {
             const res = await fetch(API_ENDPOINTS.BOOKINGS.BOOK, {
                 method: 'POST',
                 headers: getAuthHeader(),
                 body: JSON.stringify({
                     sessionId: selectedSlot.sessionId,
+                    studentId: studentInfo.studentId,
                     phone: studentInfo.phone,
                     description: studentInfo.description,
-                    googleEventId,
                 }),
             });
 
@@ -289,14 +202,13 @@ export function BookingPage({
 
             onBook(dateStr, selectedSlot.time, {
                 ...studentInfo,
-                googleEventId,
                 counselorName: selectedCounselor,
                 sessionId: selectedSlot.sessionId,
                 caseId: data.caseId,
             });
 
             setShowDescriptionModal(false);
-            setStudentInfo({ phone: '', description: '', studentId: '' });
+            setStudentInfo({ studentId: '', faculty: '', phone: '', description: '' });
 
             // refresh slots
             const meta = counselorData[selectedCounselor];
@@ -518,6 +430,22 @@ export function BookingPage({
 
                             <div className="relative">
                                 <label className="flex items-center gap-2 text-xs font-black text-gray-400 mb-2 uppercase tracking-tighter">
+                                    รหัสประจำตัว *
+                                </label>
+                                <div className="relative">
+                                    <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-green-500 outline-none"
+                                        placeholder="650610xxx"
+                                        value={studentInfo.studentId}
+                                        onChange={handleStudentIdChange}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="relative">
+                                <label className="flex items-center gap-2 text-xs font-black text-gray-400 mb-2 uppercase tracking-tighter">
                                     เบอร์โทรศัพท์ *
                                 </label>
                                 <div className="relative">
@@ -543,22 +471,6 @@ export function BookingPage({
                                     onChange={(e) => setStudentInfo({ ...studentInfo, description: e.target.value })}
                                 />
                             </div>
-
-                            <button
-                                onClick={() => !syncWithGoogle && loginToGoogle()}
-                                className={`w-full p-5 rounded-2xl border-2 flex items-center justify-between transition-all ${syncWithGoogle
-                                    ? 'bg-green-600 border-green-600 text-white'
-                                    : 'border-gray-100 bg-white hover:border-gray-200'
-                                    }`}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <Bell className={`w-5 h-5 ${syncWithGoogle ? 'text-white' : 'text-gray-400'}`} />
-                                    <span className="text-sm font-bold">แจ้งเตือนผู้ให้คำปรึกษา (Calendar)</span>
-                                </div>
-                                <div className={`w-10 h-5 rounded-full relative ${syncWithGoogle ? 'bg-white/20' : 'bg-gray-200'}`}>
-                                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${syncWithGoogle ? 'right-1' : 'left-1'}`} />
-                                </div>
-                            </button>
 
                             <button
                                 onClick={handleBooking}
