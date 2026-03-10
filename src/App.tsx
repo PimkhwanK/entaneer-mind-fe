@@ -452,7 +452,7 @@ export default function App() {
             }}
           />
         );
-        case 'counselor-report': return <ReportGenerator onFetchReportData={handleFetchReport} />;
+        case 'counselor-report': return <ReportGenerator />;
         default: return (
           <CounselorDashboard
             waitingStudents={waitingCases.length > 0 ? waitingCases : undefined}

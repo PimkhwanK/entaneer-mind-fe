@@ -281,22 +281,28 @@ export function ReportGenerator({ onFetchReportData }: ReportGeneratorProps) {
                     const mapped: ReportData = {
                         period: { from: fromDate, to: toDate },
                         summary: {
-                            totalSessions: d.sessionStats?.total ?? 0,
-                            completedSessions: d.sessionStats?.byStatus?.completed ?? 0,
-                            cancelledSessions: d.sessionStats?.byStatus?.cancelled ?? 0,
-                            newClients: d.userStats?.byRole?.client ?? 0,
-                            averageWaitDays: d.averageWaitDays ?? d.caseStats?.averageWaitDays ?? 0,
+                            totalSessions: d.summary?.totalSessions ?? 0,
+                            completedSessions: d.summary?.completedSessions ?? 0,
+                            cancelledSessions: d.summary?.cancelledSessions ?? 0,
+                            newClients: d.summary?.newClients ?? 0,
+                            averageWaitDays: d.summary?.averageWaitDays ?? 0,
                         },
-                        topTags: (d.topProblemTags ?? []).map((t: any) => ({
-                            tag: t.label,
+                        topTags: (d.topTags ?? []).map((t: any) => ({
+                            tag: t.tag,
                             count: t.count,
                         })),
-                        byDepartment: [],  // backend ไม่ได้ส่ง department breakdown
-                        counselorWorkload: (d.counselorStats ?? []).map((c: any) => ({
-                            name: c.name,
-                            sessions: c.sessionsCreated ?? 0,
+                        byDepartment: (d.byDepartment ?? []).map((dep: any) => ({
+                            department: dep.department,
+                            count: dep.count,
                         })),
-                        monthlySessions: [],  // backend ไม่ได้ส่ง monthly breakdown
+                        counselorWorkload: (d.counselorWorkload ?? []).map((c: any) => ({
+                            name: c.name,
+                            sessions: c.sessions ?? 0,
+                        })),
+                        monthlySessions: (d.monthlySessions ?? []).map((m: any) => ({
+                            month: m.month,
+                            count: m.count,
+                        })),
                     };
                     return mapped;
                 })();

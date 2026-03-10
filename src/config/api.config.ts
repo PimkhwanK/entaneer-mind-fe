@@ -89,8 +89,6 @@ export const API_ENDPOINTS = {
             `${API_BASE_URL}/sessions/${encodeURIComponent(String(sessionId))}/case-note`,
         GET_CASE_NOTE_BY_CODE: (caseCode: string) =>
             `${API_BASE_URL}/sessions/case-note/by-code/${encodeURIComponent(caseCode)}`,
-        EDIT_HISTORY: (sessionId: number) =>
-            `${API_BASE_URL}/sessions/${sessionId}/edit-history`,
     },
 
     /* ================= PROBLEM TAGS ================= */
@@ -104,7 +102,20 @@ export const API_ENDPOINTS = {
     ADMIN: {
         STATS: `${API_BASE_URL}/admin/stats`,
     },
+
+    /* ================= CLIENT HOME ================= */
+    CLIENT_HOME: {
+        HOME: `${API_BASE_URL}/client-home`,
+    },
+
+    /* ================= COUNSELOR ================= */
+    COUNSELOR: {
+        TOKENS: `${API_BASE_URL}/counselor/tokens`,
+        REPORT: (from: string, to: string) => `${API_BASE_URL}/counselor/report?startDate=${from}&endDate=${to}`,
+        SCHEDULE: `${API_BASE_URL}/counselor/schedule`,
+    },
 };
+
 
 export const getAuthHeader = (): Record<string, string> => {
     try {

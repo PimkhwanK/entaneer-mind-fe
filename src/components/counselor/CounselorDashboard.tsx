@@ -165,12 +165,12 @@ export function CounselorDashboard({
                 const d = json.data;
                 // Backend format: { caseStats, sessionStats, userStats, topProblemTags, counselorStats }
                 setSystemStatsData({
-                    activeClients: d.userStats?.byRole?.client ?? 0,
-                    activeCounselors: d.counselorStats?.length ?? 0,
-                    sessionsThisMonth: d.sessionStats?.byStatus?.completed ?? 0,
-                    averageWaitTime: `${d.caseStats?.byStatus?.in_progress ?? 0} active`,
-                    topIssueTags: (d.topProblemTags ?? []).map((t: any) => ({ tag: t.label, count: t.count })),
-                    totalSessions: d.sessionStats?.total ?? 0
+                    activeClients: d.summary?.newClients ?? 0,
+                    activeCounselors: d.counselorWorkload?.length ?? 0,
+                    sessionsThisMonth: d.summary?.completedSessions ?? 0,
+                    averageWaitTime: `${d.summary?.averageWaitDays ?? 0}d`,
+                    topIssueTags: (d.topTags ?? []).map((t: any) => ({ tag: t.tag, count: t.count })),
+                    totalSessions: d.summary?.totalSessions ?? 0
                 });
             })
             .catch(() => { });
