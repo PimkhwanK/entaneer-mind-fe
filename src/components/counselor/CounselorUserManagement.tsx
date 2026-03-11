@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     Search, UserPlus, UserCheck, Shield, User,
-    CheckCircle, X, AlertCircle
+    CheckCircle, X, AlertCircle, Trash2
 } from 'lucide-react';
 import { API_BASE_URL, getAuthHeader } from '../../config/api.config';
 
@@ -107,7 +107,6 @@ export function CounselorUserManagement({
         fetchUsers();
     }, [fetchUsers]);
 
-    // ── Filter ─────────────────────────────────────────────────
     const filtered = users.filter(u => {
         const q = searchTerm.toLowerCase();
         const matchSearch =
@@ -121,7 +120,6 @@ export function CounselorUserManagement({
         return matchSearch && matchRole && matchStatus;
     });
 
-    // ── Actions ────────────────────────────────────────────────
     const handleApprove = async (id: string) => {
         try {
             const target = users.find(u => u.id === id);
@@ -151,6 +149,32 @@ export function CounselorUserManagement({
             await fetchUsers();
         } catch (err: any) {
             alert(err.message || 'เกิดข้อผิดพลาด');
+        }
+    };
+
+    const handleDeleteUser = async (id: string) => {
+        const target = users.find(u => u.id === id);
+        const label = target ? `${target.firstName} ${target.lastName}` : 'ผู้ใช้นี้';
+
+        if (!window.confirm(`ต้องการลบ ${label} ใช่หรือไม่?\nระบบจะลบข้อมูลที่เกี่ยวข้องทั้งหมด`)) {
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/counselor/users/${id}`, {
+                method: 'DELETE',
+                headers: getAuthHeader()
+            });
+
+            const json = await res.json().catch(() => null);
+
+            if (!res.ok) {
+                throw new Error(json?.message || 'ลบผู้ใช้งานไม่สำเร็จ');
+            }
+
+            await fetchUsers();
+        } catch (err: any) {
+            alert(err.message || 'เกิดข้อผิดพลาดในการลบผู้ใช้งาน');
         }
     };
 
@@ -214,7 +238,6 @@ export function CounselorUserManagement({
         }
     };
 
-    // ── Helpers ────────────────────────────────────────────────
     const statusLabel = (s: UserStatus) =>
         s === 'active' ? 'ใช้งานปกติ' : 'รออนุมัติ';
 
@@ -366,7 +389,7 @@ export function CounselorUserManagement({
                                     <td className="px-6 py-4">
                                         {user.role === 'client' && user.department && (
                                             <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">
-                                                {user.department}
+                                                คณะ/ภาควิชา {user.department}
                                             </span>
                                         )}
                                     </td>
@@ -382,6 +405,14 @@ export function CounselorUserManagement({
                                                     <UserCheck className="w-5 h-5" />
                                                 </button>
                                             )}
+
+                                            <button
+                                                onClick={() => handleDeleteUser(user.id)}
+                                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                title="ลบผู้ใช้งาน"
+                                            >
+                                                <Trash2 className="w-5 h-5" />
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
