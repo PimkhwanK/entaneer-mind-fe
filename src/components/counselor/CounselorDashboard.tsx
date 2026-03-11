@@ -1,8 +1,23 @@
-import React, { useState } from 'react';
-import { API_ENDPOINTS, API_BASE_URL, getAuthHeader } from '../../config/api.config';
-import { Calendar, Clock, User, Users, Key, Copy, CheckCircle, AlertCircle, BarChart3, Activity, TrendingUp, ArrowUpRight, FileText } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { API_BASE_URL, getAuthHeader } from '../../config/api.config';
+import {
+    Calendar,
+    Clock,
+    User,
+    Users,
+    Key,
+    Copy,
+    CheckCircle,
+    AlertCircle,
+    BarChart3,
+    Activity,
+    TrendingUp,
+    ArrowUpRight,
+    FileText
+} from 'lucide-react';
+
 export interface WaitingStudent {
-    id: string;
+    id: string; // caseId
     name: string;
     waitingSince: string;
     urgency: 'low' | 'medium' | 'high';
@@ -21,7 +36,7 @@ export interface allToken {
     token: string;
     isUsed: boolean;
     usedAt?: Date;
-    createdAt: Date;
+    createdAt?: Date;
 }
 
 interface CounselorDashboardProps {
@@ -30,7 +45,7 @@ interface CounselorDashboardProps {
     allToken?: allToken[];
     totalCasesCount?: number;
     onScheduleAppointment?: (studentId: string) => void;
-    onApproveWaiting?: (studentId: string) => void;
+    onApproveWaiting?: (caseId: string) => void;
     onNavigateToReport?: () => void;
     onCreateToken?: (tokenCode: string) => Promise<any>;
     systemStats?: SystemStats;
@@ -39,145 +54,201 @@ interface CounselorDashboardProps {
 export interface SystemStats {
     activeClients: number;
     activeCounselors: number;
-    sessionsThisMonth: number;
+    sessionsThisMonth: number; // booked + completed only
+    completedSessions: number; // completed only
     averageWaitTime: string;
     topIssueTags: { tag: string; count: number }[];
-    totalSessions: number;
+    totalSessions: number; // booked + completed only
 }
 
 const MOCK_SYSTEM_STATS: SystemStats = {
-    activeClients: 1180,
-    activeCounselors: 15,
-    sessionsThisMonth: 42,
-    averageWaitTime: '1.5d',
-    topIssueTags: [
-        { tag: 'Academic Stress', count: 120 },
-        { tag: 'Anxiety', count: 85 },
-        { tag: 'Relationship Issues', count: 64 },
-        { tag: 'Depression', count: 42 },
-        { tag: 'Financial Issues', count: 30 },
-    ],
-    totalSessions: 450,
+    activeClients: 0,
+    activeCounselors: 0,
+    sessionsThisMonth: 0,
+    completedSessions: 0,
+    averageWaitTime: '0d',
+    topIssueTags: [],
+    totalSessions: 0,
 };
 
 export function CounselorDashboard({
     waitingStudents: initialWaitingStudents,
-    todayAppointments: initialTodayAppointments,
-    allToken: initialUnusedToken,
+    allToken: initialTokens,
     totalCasesCount: initialTotalCount,
-    systemStats = MOCK_SYSTEM_STATS,
-    onScheduleAppointment,
     onApproveWaiting,
     onNavigateToReport,
     onCreateToken,
+    systemStats = MOCK_SYSTEM_STATS,
 }: CounselorDashboardProps) {
-    const [generatedToken, setGeneratedToken] = useState<string>("");
+    const [generatedToken, setGeneratedToken] = useState<string>('');
     const [copiedToken, setCopiedToken] = useState(false);
     const [tokenListLoading, setTokenListLoading] = useState(true);
     const [tokenListError, setTokenListError] = useState<string | null>(null);
-
     const [error, setError] = useState<string | null>(null);
 
-    // Mockup Data
-    const mockWaitingStudents: WaitingStudent[] = [
-        { id: 'w1', name: 'นายสมชาย รักเรียน', waitingSince: '10:15 น.', urgency: 'high' },
-        { id: 'w2', name: 'นางสาวใจดี มีสุข', waitingSince: '10:45 น.', urgency: 'medium' },
-        { id: 'w3', name: 'นายขยัน หมั่นเพียร', waitingSince: '11:20 น.', urgency: 'low' },
-    ];
-
-    const mockTodayAppointments: TodayAppointment[] = [
-        { id: 'a1', time: '13:00', studentName: 'นายมงคล สายลุย', status: 'in-progress', caseCode: 'CASE-2024-001' },
-        { id: 'a2', time: '14:30', studentName: 'นางสาววิภาดา แก้วใส', status: 'pending', caseCode: 'CASE-2024-005' },
-        { id: 'a3', time: '10:00', studentName: 'นายธันวา มาดี', status: 'completed', caseCode: 'CASE-2023-089' },
-    ];
-
-    const mockallToken: allToken[] = [
-        { id: 1, token: "690001", isUsed: false, usedAt: undefined, createdAt: new Date() },
-        { id: 2, token: "690002", isUsed: true, usedAt: new Date(), createdAt: new Date() },
-        { id: 3, token: "690003", isUsed: false, usedAt: undefined, createdAt: new Date() },
-    ];
-
-    // (Props kept for backward compatibility but data is now API-driven)
-
-    // API-backed state
     const [todayAppointmentsData, setTodayAppointmentsData] = useState<TodayAppointment[]>([]);
-    // waitingStudents: ใช้จาก props (App fetch /counselor/users มาแล้ว) ก่อน
     const [waitingStudentsData, setWaitingStudentsData] = useState<WaitingStudent[]>(initialWaitingStudents || []);
     const [totalCasesData, setTotalCasesData] = useState<number>(initialTotalCount ?? 0);
     const [systemStatsData, setSystemStatsData] = useState<SystemStats>(systemStats);
 
-    // Sync waitingStudents from props whenever parent re-fetches
-    React.useEffect(() => {
-        if (initialWaitingStudents && initialWaitingStudents.length > 0) {
+    const [tokens, setTokens] = useState<allToken[]>(initialTokens || []);
+    const [sortAsc, setSortAsc] = useState(true);
+    const [filter, setFilter] = useState<'all' | 'unused' | 'used'>('unused');
+
+    useEffect(() => {
+        if (initialWaitingStudents) {
             setWaitingStudentsData(initialWaitingStudents);
         }
     }, [initialWaitingStudents]);
 
-    React.useEffect(() => {
-        if (initialTotalCount !== undefined) setTotalCasesData(initialTotalCount);
+    useEffect(() => {
+        if (initialTotalCount !== undefined) {
+            setTotalCasesData(initialTotalCount);
+        }
     }, [initialTotalCount]);
 
-    // Fetch schedule for today -> derive todayAppointments, waitingStudents, totalCases
-    React.useEffect(() => {
-        const today = new Date().toISOString().split('T')[0];
-        fetch(`${API_BASE_URL}/counselor/schedule?startDate=${today}&endDate=${today}`, {
-            headers: getAuthHeader()
-        })
-            .then(res => res.ok ? res.json() : null)
-            .then(json => {
-                if (!json?.data?.sessions) return;
-                const sessions = json.data.sessions;
+    const formatThaiTime = (iso?: string | null) => {
+        if (!iso) return '-';
+        return new Date(iso).toLocaleTimeString('th-TH', {
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZone: 'Asia/Bangkok'
+        });
+    };
 
-                const mapped: TodayAppointment[] = sessions
-                    .filter((s: any) => ['booked', 'completed', 'available'].includes(s.status))
-                    .map((s: any) => ({
-                        id: String(s.sessionId),
-                        time: s.timeStart
-                            ? new Date(s.timeStart).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
-                            : '-',
-                        studentName: s.case?.client?.name ?? '-',
-                        status: s.status === 'completed' ? 'completed' : 'pending',
-                        caseCode: s.case ? `CASE-${s.case.caseId}` : '-'
-                    }));
-                setTodayAppointmentsData(mapped);
+    const fetchTodayAppointments = useCallback(async () => {
+        try {
+            const today = new Date().toISOString().split('T')[0];
 
-                // ไม่ override waitingStudentsData จาก schedule เพราะ schedule เป็น booked sessions
-                // waitingStudentsData มาจาก props (App.tsx fetch /counselor/users ที่มี waitingCaseId)
+            const res = await fetch(
+                `${API_BASE_URL}/counselor/schedule?startDate=${today}&endDate=${today}`,
+                { headers: getAuthHeader() }
+            );
 
-                const stats = json.data.stats;
-                setTotalCasesData((stats.booked ?? 0) + (stats.completed ?? 0));
-            })
-            .catch(() => { });
+            if (!res.ok) return;
+
+            const json = await res.json();
+            if (!json?.data?.sessions) return;
+
+            const sessions = json.data.sessions;
+
+            const mapped: TodayAppointment[] = sessions
+                .filter((s: any) => ['booked', 'completed'].includes(String(s.status)))
+                .map((s: any) => ({
+                    id: String(s.sessionId),
+                    time: formatThaiTime(s.timeStart),
+                    studentName: s.case?.client?.name || s.sessionName || '-',
+                    status: s.status === 'completed' ? 'completed' : 'pending',
+                    caseCode: s.case?.queueToken || (s.case ? `CASE-${s.case.caseId}` : '-')
+                }));
+
+            setTodayAppointmentsData(mapped);
+
+            const stats = json.data.stats || {};
+            setTotalCasesData((stats.booked ?? 0) + (stats.completed ?? 0));
+        } catch (err) {
+            console.error('fetchTodayAppointments error:', err);
+        }
     }, []);
 
-    // Fetch report for system stats (current month)
-    React.useEffect(() => {
-        const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-            .toISOString().split('T')[0];
-        const today = new Date().toISOString().split('T')[0];
+    const fetchWaitingCases = useCallback(async () => {
+        try {
+            const res = await fetch(`${API_BASE_URL}/counselor/waiting-cases`, {
+                headers: getAuthHeader()
+            });
 
-        fetch(`${API_BASE_URL}/counselor/report?startDate=${firstOfMonth}&endDate=${today}`, {
-            headers: getAuthHeader()
-        })
-            .then(res => res.ok ? res.json() : null)
-            .then(json => {
-                if (!json?.data) return;
-                const d = json.data;
-                // Backend format: { caseStats, sessionStats, userStats, topProblemTags, counselorStats }
-                setSystemStatsData({
-                    activeClients: d.summary?.newClients ?? 0,
-                    activeCounselors: d.counselorWorkload?.length ?? 0,
-                    sessionsThisMonth: d.summary?.completedSessions ?? 0,
-                    averageWaitTime: `${d.summary?.averageWaitDays ?? 0}d`,
-                    topIssueTags: (d.topTags ?? []).map((t: any) => ({ tag: t.tag, count: t.count })),
-                    totalSessions: d.summary?.totalSessions ?? 0
-                });
-            })
-            .catch(() => { });
+            if (!res.ok) return;
+
+            const json = await res.json();
+            const rawCases = json?.data?.cases ?? [];
+
+            const mapped: WaitingStudent[] = rawCases.map((c: any) => ({
+                id: String(c.caseId),
+                name: c.client?.name || '-',
+                waitingSince: formatThaiTime(c.waitingSince),
+                urgency: (c.priority || 'medium') as 'low' | 'medium' | 'high'
+            }));
+
+            setWaitingStudentsData(mapped);
+        } catch (err) {
+            console.error('fetchWaitingCases error:', err);
+        }
     }, []);
+
+    const fetchSystemStats = useCallback(async () => {
+        try {
+            const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+                .toISOString()
+                .split('T')[0];
+            const today = new Date().toISOString().split('T')[0];
+
+            const res = await fetch(
+                `${API_BASE_URL}/counselor/report?startDate=${firstOfMonth}&endDate=${today}`,
+                {
+                    headers: getAuthHeader()
+                }
+            );
+
+            if (!res.ok) return;
+
+            const json = await res.json();
+            if (!json?.data) return;
+
+            const d = json.data;
+            setSystemStatsData({
+                activeClients: d.summary?.newClients ?? 0,
+                activeCounselors: d.counselorWorkload?.length ?? 0,
+                sessionsThisMonth: d.summary?.totalSessions ?? 0,      // booked + completed
+                completedSessions: d.summary?.completedSessions ?? 0,  // completed only
+                averageWaitTime: `${d.summary?.averageWaitDays ?? 0}d`,
+                topIssueTags: (d.topTags ?? []).map((t: any) => ({
+                    tag: t.tag,
+                    count: t.count
+                })),
+                totalSessions: d.summary?.totalSessions ?? 0
+            });
+        } catch (err) {
+            console.error('fetchSystemStats error:', err);
+        }
+    }, []);
+
+    const fetchTokens = useCallback(async () => {
+        setTokenListLoading(true);
+        setTokenListError(null);
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/counselor/tokens`, {
+                headers: getAuthHeader()
+            });
+
+            if (!res.ok) throw new Error(`Failed to fetch tokens (${res.status})`);
+
+            const json = await res.json();
+            const raw = json.data?.tokens ?? [];
+
+            setTokens(
+                raw.map((t: any) => ({
+                    id: t.id,
+                    token: t.token,
+                    isUsed: t.isUsed,
+                    usedAt: t.usedAt ? new Date(t.usedAt) : undefined,
+                }))
+            );
+        } catch (err) {
+            setTokenListError((err as Error).message);
+        } finally {
+            setTokenListLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchTodayAppointments();
+        fetchWaitingCases();
+        fetchSystemStats();
+        fetchTokens();
+    }, [fetchTodayAppointments, fetchWaitingCases, fetchSystemStats, fetchTokens]);
 
     const handleGenerateToken = () => {
-        // สุ่ม token TK-XXXXXX (X = A-Z หรือ 0-9 แบบ random 6 ตัว)
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
         const randomPart = Array.from({ length: 6 }, () =>
             chars[Math.floor(Math.random() * chars.length)]
@@ -185,7 +256,6 @@ export function CounselorDashboard({
         const newTokenCode = `TK-${randomPart}`;
 
         if (isDuplicate(newTokenCode)) {
-            // สุ่มใหม่อัตโนมัติถ้าซ้ำ (ซึ่งแทบเป็นไปไม่ได้)
             handleGenerateToken();
             return;
         }
@@ -198,157 +268,151 @@ export function CounselorDashboard({
     const handleConfirmToken = async () => {
         if (!generatedToken) return;
 
-        // บันทึกไป backend
-        if (onCreateToken) {
-            try {
+        try {
+            if (onCreateToken) {
                 await onCreateToken(generatedToken);
-            } catch (e: any) {
-                console.warn('onCreateToken failed:', e?.message);
+            } else {
+                const res = await fetch(`${API_BASE_URL}/counselor/tokens`, {
+                    method: 'POST',
+                    headers: {
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ code: generatedToken })
+                });
+
+                const json = await res.json().catch(() => null);
+                if (!res.ok) {
+                    throw new Error(json?.message || 'สร้าง token ไม่สำเร็จ');
+                }
             }
+
+            setGeneratedToken('');
+            setCopiedToken(false);
+            setError(null);
+            await fetchTokens();
+        } catch (e: any) {
+            setError(e?.message || 'สร้าง token ไม่สำเร็จ');
         }
-
-        const newId = tokens.length > 0 ? Math.max(...tokens.map(t => t.id)) + 1 : 1;
-        const newToken: allToken = {
-            id: newId,
-            token: generatedToken,
-            isUsed: false,
-            createdAt: new Date()
-        };
-
-        setTokens(prev => [...prev, newToken]);
-        setGeneratedToken('');
-        setCopiedToken(false);
-        setError(null);
     };
 
     const handleDeleteToken = async (id: number) => {
         if (!window.confirm('ต้องการลบ token นี้ใช่หรือไม่?')) return;
-        // optimistic remove ทันที
-        setTokens(prev => prev.filter(t => t.id !== id));
+
         try {
             const res = await fetch(`${API_BASE_URL}/counselor/tokens/${id}`, {
                 method: 'DELETE',
                 headers: getAuthHeader(),
             });
+
+            const json = await res.json().catch(() => null);
             if (!res.ok) {
-                // revert ถ้าล้มเหลว
-                const err = await res.json().catch(() => ({}));
-                alert(err?.message || 'ลบไม่สำเร็จ');
-                // re-fetch เพื่อ sync
-                const refetch = await fetch(`${API_BASE_URL}/counselor/tokens`, { headers: getAuthHeader() });
-                if (refetch.ok) {
-                    const json = await refetch.json();
-                    const raw = json.data?.tokens ?? [];
-                    setTokens(raw.map((t: any) => ({ id: t.id, token: t.token, isUsed: t.isUsed, usedAt: t.usedAt ? new Date(t.usedAt) : undefined, createdAt: new Date(t.createdAt) })));
-                }
+                throw new Error(json?.message || 'ลบไม่สำเร็จ');
             }
-        } catch (e) {
-            console.error('deleteToken error:', e);
+
+            await fetchTokens();
+        } catch (e: any) {
+            alert(e?.message || 'ลบไม่สำเร็จ');
         }
     };
 
     const handleCopyToken = () => {
         if (!generatedToken) return;
-
         navigator.clipboard.writeText(generatedToken);
         setCopiedToken(true);
         setTimeout(() => setCopiedToken(false), 2000);
+    };
+
+    const handleApproveWaitingCase = async (caseId: string) => {
+        try {
+            const res = await fetch(`${API_BASE_URL}/counselor/cases/${caseId}/confirm`, {
+                method: 'POST',
+                headers: {
+                    ...getAuthHeader(),
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const json = await res.json().catch(() => null);
+
+            if (!res.ok) {
+                throw new Error(json?.message || 'ยืนยันเคสไม่สำเร็จ');
+            }
+
+            await fetchWaitingCases();
+            await fetchTodayAppointments();
+            await fetchSystemStats();
+
+            onApproveWaiting?.(caseId);
+        } catch (err: any) {
+            alert(err.message || 'เกิดข้อผิดพลาด');
+        }
     };
 
     const isDuplicate = (tokenCode: string) => {
         return tokens.some((t) => t.token === tokenCode);
     };
 
-    // Token list state — populated from API
-    const [tokens, setTokens] = useState<allToken[]>(initialUnusedToken || []);
-    const [sortAsc, setSortAsc] = useState(true);
-    const [filter, setFilter] = useState<"all" | "unused" | "used">("unused");
-
-    React.useEffect(() => {
-        if (initialUnusedToken) {
-            setTokenListLoading(false);
-            return;
-        }
-        const fetchTokens = async () => {
-            setTokenListLoading(true);
-            setTokenListError(null);
-            try {
-                const res = await fetch(`${API_BASE_URL}/counselor/tokens`, {
-                    headers: getAuthHeader()
-                });
-                if (!res.ok) throw new Error(`Failed to fetch tokens (${res.status})`);
-                const json = await res.json();
-                // Backend returns { success, data: { total, tokens: [...] } }
-                const raw: Array<{
-                    id: number;
-                    token: string;
-                    isUsed: boolean;
-                    usedAt?: string;
-                    createdAt: string;
-                }> = json.data?.tokens ?? [];
-                setTokens(raw.map(t => ({
-                    id: t.id,
-                    token: t.token,
-                    isUsed: t.isUsed,
-                    usedAt: t.usedAt ? new Date(t.usedAt) : undefined,
-                    createdAt: new Date(t.createdAt)
-                })));
-            } catch (err) {
-                setTokenListError((err as Error).message);
-            } finally {
-                setTokenListLoading(false);
-            }
-        };
-        fetchTokens();
-    }, [initialUnusedToken]);
-
-    // filter
-    const filteredTokens = tokens.filter(token => {
-        if (filter === "all") return true;
-        if (filter === "unused") return !token.isUsed;
-        if (filter === "used") return token.isUsed;
+    const filteredTokens = tokens.filter((token) => {
+        if (filter === 'all') return true;
+        if (filter === 'unused') return !token.isUsed;
+        if (filter === 'used') return token.isUsed;
+        return true;
     });
 
-    // sort
     const sortedTokens = [...filteredTokens].sort((a, b) =>
-        sortAsc
-            ? a.token.localeCompare(b.token)
-            : b.token.localeCompare(a.token)
+        sortAsc ? a.token.localeCompare(b.token) : b.token.localeCompare(a.token)
     );
 
     const getUrgencyLabel = (urgency: string) => {
         switch (urgency) {
-            case 'high': return 'เร่งด่วนมาก';
-            case 'medium': return 'ปานกลาง';
-            case 'low': return 'ปกติ';
-            default: return 'ไม่ระบุ';
+            case 'high':
+                return 'เร่งด่วนมาก';
+            case 'medium':
+                return 'ปานกลาง';
+            case 'low':
+                return 'ปกติ';
+            default:
+                return 'ไม่ระบุ';
         }
     };
 
     const getUrgencyColor = (urgency: string) => {
         switch (urgency) {
-            case 'high': return 'bg-red-100 text-red-700 border-red-200';
-            case 'medium': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-            case 'low': return 'bg-green-100 text-green-700 border-green-200';
-            default: return 'bg-gray-100 text-gray-700';
+            case 'high':
+                return 'bg-red-100 text-red-700 border-red-200';
+            case 'medium':
+                return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+            case 'low':
+                return 'bg-green-100 text-green-700 border-green-200';
+            default:
+                return 'bg-gray-100 text-gray-700';
         }
     };
 
     const getStatusLabel = (status: string) => {
         switch (status) {
-            case 'completed': return 'เสร็จสิ้น';
-            case 'in-progress': return 'กำลังปรึกษา';
-            case 'pending': return 'รอพบ';
-            default: return status;
+            case 'completed':
+                return 'เสร็จสิ้น';
+            case 'in-progress':
+                return 'กำลังปรึกษา';
+            case 'pending':
+                return 'รอพบ';
+            default:
+                return status;
         }
     };
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'completed': return 'bg-green-100 text-green-700';
-            case 'in-progress': return 'bg-blue-100 text-blue-700';
-            case 'pending': return 'bg-yellow-100 text-yellow-700';
-            default: return 'bg-gray-100 text-gray-700';
+            case 'completed':
+                return 'bg-green-100 text-green-700';
+            case 'in-progress':
+                return 'bg-blue-100 text-blue-700';
+            case 'pending':
+                return 'bg-yellow-100 text-yellow-700';
+            default:
+                return 'bg-gray-100 text-gray-700';
         }
     };
 
@@ -356,7 +420,9 @@ export function CounselorDashboard({
         <div className="p-8 max-w-7xl mx-auto font-sans">
             <header className="mb-8">
                 <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">แผงควบคุมผู้ให้คำปรึกษา</h1>
-                <p className="text-[var(--color-text-secondary)] text-sm">จัดการตารางนัดหมายและบันทึกเคสนักศึกษาในความดูแลของคุณ</p>
+                <p className="text-[var(--color-text-secondary)] text-sm">
+                    จัดการตารางนัดหมายและบันทึกเคสนักศึกษาในความดูแลของคุณ
+                </p>
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -367,7 +433,9 @@ export function CounselorDashboard({
                         </div>
                         <h4 className="font-medium">นัดหมายวันนี้</h4>
                     </div>
-                    <p className="text-3xl font-bold text-[var(--color-text-primary)] ml-13">{todayAppointmentsData.length}</p>
+                    <p className="text-3xl font-bold text-[var(--color-text-primary)] ml-13">
+                        {todayAppointmentsData.length}
+                    </p>
                 </div>
 
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
@@ -377,7 +445,9 @@ export function CounselorDashboard({
                         </div>
                         <h4 className="font-medium">รอการจัดคิว</h4>
                     </div>
-                    <p className="text-3xl font-bold text-[var(--color-text-primary)] ml-13">{waitingStudentsData.length}</p>
+                    <p className="text-3xl font-bold text-[var(--color-text-primary)] ml-13">
+                        {waitingStudentsData.length}
+                    </p>
                 </div>
 
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
@@ -388,7 +458,7 @@ export function CounselorDashboard({
                         <h4 className="font-medium">ปรึกษาเสร็จแล้ว</h4>
                     </div>
                     <p className="text-3xl font-bold text-[var(--color-text-primary)] ml-13">
-                        {todayAppointmentsData.filter(apt => apt.status === 'completed').length}
+                        {todayAppointmentsData.filter((apt) => apt.status === 'completed').length}
                     </p>
                 </div>
 
@@ -399,7 +469,9 @@ export function CounselorDashboard({
                         </div>
                         <h4 className="font-medium">เคสทั้งหมด</h4>
                     </div>
-                    <p className="text-3xl font-bold text-[var(--color-text-primary)] ml-13">{totalCasesData}</p>
+                    <p className="text-3xl font-bold text-[var(--color-text-primary)] ml-13">
+                        {totalCasesData}
+                    </p>
                 </div>
             </div>
 
@@ -410,18 +482,29 @@ export function CounselorDashboard({
                             <Key className="size-5 text-[var(--color-accent-green)]" />
                             <h3 className="font-bold">สร้างรหัสลงทะเบียน (Token)</h3>
                         </div>
-                        <p className="text-sm text-[var(--color-text-secondary)] mb-6">สร้างรหัสเฉพาะสำหรับนักศึกษาใหม่ รูปแบบ TK-XXXXXX</p>
+                        <p className="text-sm text-[var(--color-text-secondary)] mb-6">
+                            สร้างรหัสเฉพาะสำหรับนักศึกษาใหม่ รูปแบบ TK-XXXXXX
+                        </p>
 
-                        {/* Preview token ที่สุ่มได้ */}
                         {generatedToken ? (
                             <div className="bg-gray-50 border-2 border-dashed border-green-300 rounded-2xl p-4 mb-4">
-                                <p className="text-xs text-gray-400 mb-2 font-medium">Token ที่สุ่มได้ (ยังไม่ถูกบันทึก)</p>
+                                <p className="text-xs text-gray-400 mb-2 font-medium">
+                                    Token ที่สุ่มได้ (ยังไม่ถูกบันทึก)
+                                </p>
                                 <div className="flex items-center gap-2">
                                     <code className="flex-1 bg-white px-3 py-2 rounded-xl text-lg font-mono font-bold text-green-700 border border-green-100 tracking-widest">
                                         {generatedToken}
                                     </code>
-                                    <button onClick={handleCopyToken} className="p-2 hover:bg-white rounded-xl transition-colors shadow-sm" title="Copy">
-                                        {copiedToken ? <CheckCircle className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5 text-[var(--color-accent-blue)]" />}
+                                    <button
+                                        onClick={handleCopyToken}
+                                        className="p-2 hover:bg-white rounded-xl transition-colors shadow-sm"
+                                        title="Copy"
+                                    >
+                                        {copiedToken ? (
+                                            <CheckCircle className="w-5 h-5 text-green-600" />
+                                        ) : (
+                                            <Copy className="w-5 h-5 text-[var(--color-accent-blue)]" />
+                                        )}
                                     </button>
                                 </div>
                                 <div className="flex gap-2 mt-3">
@@ -432,7 +515,10 @@ export function CounselorDashboard({
                                         ✓ ยืนยันและบันทึก
                                     </button>
                                     <button
-                                        onClick={() => { setGeneratedToken(''); setError(null); }}
+                                        onClick={() => {
+                                            setGeneratedToken('');
+                                            setError(null);
+                                        }}
                                         className="px-4 py-2.5 bg-gray-100 text-gray-500 rounded-xl font-bold text-sm hover:bg-gray-200 transition-colors"
                                     >
                                         ยกเลิก
@@ -455,37 +541,38 @@ export function CounselorDashboard({
                         {error && <p className="text-red-500 mt-3 text-sm">{error}</p>}
                     </div>
 
-                    {/* Token Dashboard */}
                     <div className="lg:col-span-2">
                         <div className="bg-white rounded-2xl shadow-sm p-6">
                             <h2 className="text-xl mb-4">Token Dashboard</h2>
 
-                            {/* Filter Tabs */}
                             <div className="flex items-center gap-4 mb-4">
                                 <button
                                     onClick={() => setFilter('all')}
-                                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === 'all'
-                                        ? 'bg-blue-100 text-blue-700'
-                                        : 'text-gray-600 hover:bg-gray-100'
-                                        }`}
+                                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                                        filter === 'all'
+                                            ? 'bg-blue-100 text-blue-700'
+                                            : 'text-gray-600 hover:bg-gray-100'
+                                    }`}
                                 >
                                     ทั้งหมด
                                 </button>
                                 <button
                                     onClick={() => setFilter('unused')}
-                                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === 'unused'
-                                        ? 'bg-blue-100 text-blue-700'
-                                        : 'text-gray-600 hover:bg-gray-100'
-                                        }`}
+                                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                                        filter === 'unused'
+                                            ? 'bg-blue-100 text-blue-700'
+                                            : 'text-gray-600 hover:bg-gray-100'
+                                    }`}
                                 >
                                     ยังไม่ถูกใช้งาน
                                 </button>
                                 <button
                                     onClick={() => setFilter('used')}
-                                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === 'used'
-                                        ? 'bg-blue-100 text-blue-700'
-                                        : 'text-gray-600 hover:bg-gray-100'
-                                        }`}
+                                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                                        filter === 'used'
+                                            ? 'bg-blue-100 text-blue-700'
+                                            : 'text-gray-600 hover:bg-gray-100'
+                                    }`}
                                 >
                                     ถูกใช้งานแล้ว
                                 </button>
@@ -498,56 +585,67 @@ export function CounselorDashboard({
                                 </button>
                             </div>
 
-                            {/* Token List - Scrollable */}
                             <div className="max-h-54 overflow-y-auto space-y-3 pr-2">
                                 {tokenListLoading ? (
                                     <div className="text-center py-8 text-gray-400 text-sm">กำลังโหลด...</div>
                                 ) : tokenListError ? (
-                                    <div className="text-center py-8 text-red-400 text-sm">เกิดข้อผิดพลาด: {tokenListError}</div>
+                                    <div className="text-center py-8 text-red-400 text-sm">
+                                        เกิดข้อผิดพลาด: {tokenListError}
+                                    </div>
                                 ) : sortedTokens.length === 0 ? (
                                     <div className="text-center py-8 text-gray-400 text-sm">ไม่พบ Token</div>
-                                ) : sortedTokens.map((t) => (
-                                    <div
-                                        key={t.id}
-                                        className={`p-4 rounded-xl border-2 transition-all ${t.isUsed
-                                            ? 'bg-green-50 border-green-200 opacity-60'
-                                            : 'bg-white border-gray-200 hover:border-gray-300'
+                                ) : (
+                                    sortedTokens.map((t) => (
+                                        <div
+                                            key={t.id}
+                                            className={`p-4 rounded-xl border-2 transition-all ${
+                                                t.isUsed
+                                                    ? 'bg-green-50 border-green-200 opacity-60'
+                                                    : 'bg-white border-gray-200 hover:border-gray-300'
                                             }`}
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="font-bold text-lg font-mono tracking-widest text-gray-800">
-                                                    {t.token}
-                                                </p>
-                                                <p className="text-xs text-gray-400 mt-0.5">
-                                                    {t.isUsed ? `ใช้แล้ว${t.usedAt ? ` • ${new Date(t.usedAt).toLocaleDateString('th-TH')}` : ''}` : 'ยังไม่ถูกใช้งาน'}
-                                                </p>
-                                            </div>
-                                            {!t.isUsed && (
-                                                <div className="flex items-center gap-1">
-                                                    <button
-                                                        onClick={() => navigator.clipboard.writeText(t.token)}
-                                                        className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
-                                                        title="Copy"
-                                                    >
-                                                        <Copy className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDeleteToken(t.id)}
-                                                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                                        title="Delete"
-                                                    >
-                                                        <AlertCircle className="w-4 h-4" />
-                                                    </button>
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="font-bold text-lg font-mono tracking-widest text-gray-800">
+                                                        {t.token}
+                                                    </p>
+                                                    <p className="text-xs text-gray-400 mt-0.5">
+                                                        {t.isUsed
+                                                            ? `ใช้แล้ว${
+                                                                  t.usedAt
+                                                                      ? ` • ${new Date(t.usedAt).toLocaleDateString(
+                                                                            'th-TH'
+                                                                        )}`
+                                                                      : ''
+                                                              }`
+                                                            : 'ยังไม่ถูกใช้งาน'}
+                                                    </p>
                                                 </div>
-                                            )}
+                                                {!t.isUsed && (
+                                                    <div className="flex items-center gap-1">
+                                                        <button
+                                                            onClick={() => navigator.clipboard.writeText(t.token)}
+                                                            className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                                                            title="Copy"
+                                                        >
+                                                            <Copy className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteToken(t.id)}
+                                                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                            title="Delete"
+                                                        >
+                                                            <AlertCircle className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))
+                                )}
                             </div>
                         </div>
                     </div>
-
 
                     <div className="lg:col-span-3 bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
                         <div className="flex items-center gap-2 mb-4">
@@ -562,19 +660,36 @@ export function CounselorDashboard({
                         ) : (
                             <div className="space-y-3">
                                 {todayAppointmentsData.map((apt) => (
-                                    <div key={apt.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:border-[var(--color-accent-blue)] transition-colors">
-                                        <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm"><User className="w-6 h-6 text-gray-400" /></div>
+                                    <div
+                                        key={apt.id}
+                                        className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:border-[var(--color-accent-blue)] transition-colors"
+                                    >
+                                        <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm">
+                                            <User className="w-6 h-6 text-gray-400" />
+                                        </div>
                                         <div className="flex-1">
                                             <div className="flex items-center gap-2">
-                                                <h4 className="font-bold text-[var(--color-text-primary)]">{apt.studentName}</h4>
-                                                <span className="text-[10px] px-2 py-0.5 bg-gray-200 rounded text-gray-600 font-mono">{apt.caseCode}</span>
+                                                <h4 className="font-bold text-[var(--color-text-primary)]">
+                                                    {apt.studentName}
+                                                </h4>
+                                                <span className="text-[10px] px-2 py-0.5 bg-gray-200 rounded text-gray-600 font-mono">
+                                                    {apt.caseCode}
+                                                </span>
                                             </div>
                                             <div className="flex items-center gap-2 mt-1">
                                                 <Clock className="w-4 h-4 text-[var(--color-text-secondary)]" />
-                                                <span className="text-sm text-[var(--color-text-secondary)]">{apt.time} น.</span>
+                                                <span className="text-sm text-[var(--color-text-secondary)]">
+                                                    {apt.time} น.
+                                                </span>
                                             </div>
                                         </div>
-                                        <span className={`px-4 py-1.5 rounded-full text-xs font-medium ${getStatusColor(apt.status)}`}>{getStatusLabel(apt.status)}</span>
+                                        <span
+                                            className={`px-4 py-1.5 rounded-full text-xs font-medium ${getStatusColor(
+                                                apt.status
+                                            )}`}
+                                        >
+                                            {getStatusLabel(apt.status)}
+                                        </span>
                                     </div>
                                 ))}
                             </div>
@@ -583,9 +698,15 @@ export function CounselorDashboard({
                 </div>
 
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
-                    <div className="flex items-center gap-2 mb-4"><AlertCircle className="w-5 h-5 text-[var(--color-accent-green)]" /><h3 className="font-bold">นักศึกษาที่รอการจัดคิว</h3></div>
+                    <div className="flex items-center gap-2 mb-4">
+                        <AlertCircle className="w-5 h-5 text-[var(--color-accent-green)]" />
+                        <h3 className="font-bold">นักศึกษาที่รอการจัดคิว</h3>
+                    </div>
                     {waitingStudentsData.length === 0 ? (
-                        <div className="text-center py-12 text-gray-400"><Users className="w-12 h-12 mx-auto mb-3 opacity-20" /><p>ไม่มีนักศึกษารอคิวในขณะนี้</p></div>
+                        <div className="text-center py-12 text-gray-400">
+                            <Users className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                            <p>ไม่มีนักศึกษารอคิวในขณะนี้</p>
+                        </div>
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-left">
@@ -600,12 +721,29 @@ export function CounselorDashboard({
                                 <tbody className="divide-y divide-gray-50 text-sm">
                                     {waitingStudentsData.map((student) => (
                                         <tr key={student.id} className="hover:bg-gray-50/50 transition-colors">
-                                            <td className="px-4 py-4"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center border border-green-100"><User className="w-4 h-4 text-green-600" /></div><span className="font-medium">{student.name}</span></div></td>
-                                            <td className="px-4 py-4 text-[var(--color-text-secondary)]">{student.waitingSince}</td>
-                                            <td className="px-4 py-4"><span className={`px-3 py-1 rounded-full text-[11px] font-bold border ${getUrgencyColor(student.urgency)}`}>{getUrgencyLabel(student.urgency)}</span></td>
+                                            <td className="px-4 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center border border-green-100">
+                                                        <User className="w-4 h-4 text-green-600" />
+                                                    </div>
+                                                    <span className="font-medium">{student.name}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-4 text-[var(--color-text-secondary)]">
+                                                {student.waitingSince}
+                                            </td>
+                                            <td className="px-4 py-4">
+                                                <span
+                                                    className={`px-3 py-1 rounded-full text-[11px] font-bold border ${getUrgencyColor(
+                                                        student.urgency
+                                                    )}`}
+                                                >
+                                                    {getUrgencyLabel(student.urgency)}
+                                                </span>
+                                            </td>
                                             <td className="px-4 py-4">
                                                 <button
-                                                    onClick={() => onApproveWaiting?.(student.id)}
+                                                    onClick={() => handleApproveWaitingCase(student.id)}
                                                     className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-xs font-bold rounded-xl transition-colors whitespace-nowrap"
                                                 >
                                                     ✓ ยืนยัน
@@ -620,18 +758,15 @@ export function CounselorDashboard({
                 </div>
             </div>
 
-            {/* ════════════════════════════════════════
-                ส่วนล่าง: สถิติภาพรวมระบบ (System Stats)
-                โยกมาจาก Admin Dashboard
-            ════════════════════════════════════════ */}
             <div className="border-t-2 border-dashed border-gray-200 pt-10 mb-8">
                 <div className="flex items-center gap-3 mb-2">
                     <TrendingUp className="w-6 h-6 text-[var(--color-accent-blue)]" />
                     <h2 className="text-xl font-bold text-[var(--color-text-primary)]">สถิติภาพรวมระบบ</h2>
                 </div>
-                <p className="text-sm text-[var(--color-text-secondary)] mb-8">ข้อมูลสะสมของระบบ Entaneer Mind ทั้งหมด</p>
+                <p className="text-sm text-[var(--color-text-secondary)] mb-8">
+                    ข้อมูลสะสมของระบบ Entaneer Mind ทั้งหมด
+                </p>
 
-                {/* System Summary Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100">
                         <div className="flex items-center justify-between mb-4">
@@ -663,41 +798,46 @@ export function CounselorDashboard({
                         </div>
                         <p className="text-sm text-gray-500 mb-1 font-medium">นัดหมายเดือนนี้</p>
                         <h2 className="text-3xl font-bold text-gray-800">{systemStatsData.sessionsThisMonth}</h2>
-                        <p className="text-xs text-green-600 mt-2">เสร็จสิ้นแล้ว {systemStatsData.totalSessions} เคสรวม</p>
+                        <p className="text-xs text-green-600 mt-2">
+                            เสร็จสิ้นแล้ว {systemStatsData.totalSessions} เคสรวม
+                        </p>
                     </div>
                 </div>
 
-                {/* Problem Tags + Average Wait Time + Report */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Problem Tags Bar Chart */}
                     <div className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-50">
                         <div className="flex items-center gap-3 mb-6">
                             <BarChart3 className="w-6 h-6 text-green-500" />
                             <h3 className="text-lg font-bold text-gray-800">ปัญหาที่พบบ่อย (Problem Tags)</h3>
                         </div>
                         <div className="space-y-5">
-                            {systemStatsData.topIssueTags.map((issue, idx) => (
-                                <div key={idx}>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-sm font-semibold text-gray-600">{issue.tag}</span>
-                                        <span className="text-sm font-bold text-gray-800">{issue.count} เคส</span>
+                            {systemStatsData.topIssueTags.length === 0 ? (
+                                <p className="text-sm text-gray-400">ยังไม่มีข้อมูล</p>
+                            ) : (
+                                systemStatsData.topIssueTags.map((issue, idx) => (
+                                    <div key={idx}>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-sm font-semibold text-gray-600">{issue.tag}</span>
+                                            <span className="text-sm font-bold text-gray-800">{issue.count} เคส</span>
+                                        </div>
+                                        <div className="w-full bg-gray-100 rounded-full h-2.5">
+                                            <div
+                                                className="bg-green-400 h-2.5 rounded-full transition-all duration-1000"
+                                                style={{
+                                                    width: `${
+                                                        systemStatsData.totalSessions > 0
+                                                            ? (issue.count / systemStatsData.totalSessions) * 100
+                                                            : 0
+                                                    }%`
+                                                }}
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="w-full bg-gray-100 rounded-full h-2.5">
-                                        <div
-                                            className="bg-green-400 h-2.5 rounded-full transition-all duration-1000"
-                                            style={{
-                                                width: `${systemStatsData.totalSessions > 0
-                                                    ? (issue.count / systemStatsData.totalSessions) * 100
-                                                    : 0}%`
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            ))}
+                                ))
+                            )}
                         </div>
                     </div>
 
-                    {/* Right Column: Average Wait Time + Generate Report */}
                     <div className="space-y-6">
                         <div className="bg-gradient-to-br from-green-500 to-blue-600 rounded-[2.5rem] p-8 text-white shadow-lg">
                             <h3 className="text-white/80 font-medium mb-4 flex items-center gap-2 text-sm">
@@ -709,7 +849,9 @@ export function CounselorDashboard({
 
                         <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100">
                             <h3 className="text-lg font-bold text-gray-800 mb-2">รายงานระบบ</h3>
-                            <p className="text-sm text-gray-500 mb-4">สร้างรายงานสรุปสถิติในช่วงเวลาที่ต้องการ</p>
+                            <p className="text-sm text-gray-500 mb-4">
+                                สร้างรายงานสรุปสถิติในช่วงเวลาที่ต้องการ
+                            </p>
                             <button
                                 onClick={onNavigateToReport}
                                 className="w-full flex items-center justify-between px-5 py-4 bg-gray-50 text-gray-700 rounded-2xl hover:bg-green-500 hover:text-white transition-all font-bold group"
@@ -725,7 +867,6 @@ export function CounselorDashboard({
                 </div>
             </div>
 
-            {/* Activity Summary */}
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
                 <div className="flex items-center gap-2 mb-4">
                     <Activity className="w-5 h-5 text-[var(--color-accent-blue)]" />
@@ -750,7 +891,6 @@ export function CounselorDashboard({
                     </div>
                 </div>
             </div>
-
         </div>
     );
 }

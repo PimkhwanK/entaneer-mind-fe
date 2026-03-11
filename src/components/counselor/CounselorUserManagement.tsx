@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     Search, UserPlus, UserCheck, Shield, User,
     CheckCircle, X, AlertCircle
 } from 'lucide-react';
+import { API_BASE_URL, getAuthHeader } from '../../config/api.config';
 
 // ── Types ──────────────────────────────────────────────────────
 type UserRole = 'client' | 'counselor';
@@ -17,6 +18,7 @@ interface ManagedUser {
     status: UserStatus;
     createdAt: string;
     department?: string;
+    pendingCaseId?: number | null;
 }
 
 interface NewUserForm {
@@ -34,25 +36,6 @@ interface CounselorUserManagementProps {
     onAddUser?: (form: NewUserForm) => Promise<void>;
 }
 
-// ── Mockup ─────────────────────────────────────────────────────
-const MOCK_USERS: ManagedUser[] = [
-    {
-        id: '1', firstName: 'สมชาย', lastName: 'รักเรียน',
-        cmuAccount: '650612001@cmu.ac.th', role: 'client',
-        status: 'active', createdAt: '2025-01-10', department: 'วิศวกรรมคอมพิวเตอร์'
-    },
-    {
-        id: '2', firstName: 'ใจดี', lastName: 'มีสุข',
-        cmuAccount: '650612002@cmu.ac.th', role: 'client',
-        status: 'pending', createdAt: '2025-01-15', department: 'วิศวกรรมไฟฟ้า'
-    },
-    {
-        id: '3', firstName: 'วิภาดา', lastName: 'แก้วใส',
-        cmuAccount: 'wiphada.k@cmu.ac.th', role: 'counselor',
-        status: 'active', createdAt: '2024-08-01',
-    },
-];
-
 const EMPTY_FORM: NewUserForm = {
     firstName: '',
     lastName: '',
@@ -62,24 +45,67 @@ const EMPTY_FORM: NewUserForm = {
     priority: 'medium',
 };
 
-// ── Component ──────────────────────────────────────────────────
 export function CounselorUserManagement({
     users: initialUsers,
     onApprove,
     onAddUser,
 }: CounselorUserManagementProps) {
+    const [users, setUsers] = useState<ManagedUser[]>(initialUsers || []);
+    const [loading, setLoading] = useState(false);
+    const [pageError, setPageError] = useState('');
 
-    const [users, setUsers] = useState<ManagedUser[]>(initialUsers || MOCK_USERS);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterRole, setFilterRole] = useState<'all' | UserRole>('all');
     const [filterStatus, setFilterStatus] = useState<'all' | UserStatus>('all');
 
-    // Modal State
     const [showAddModal, setShowAddModal] = useState(false);
     const [form, setForm] = useState<NewUserForm>(EMPTY_FORM);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState('');
     const [showSuccess, setShowSuccess] = useState(false);
+
+    const fetchUsers = useCallback(async () => {
+        setLoading(true);
+        setPageError('');
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/counselor/users`, {
+                headers: getAuthHeader()
+            });
+
+            const json = await res.json().catch(() => null);
+
+            if (!res.ok) {
+                throw new Error(json?.message || 'โหลดข้อมูลผู้ใช้งานไม่สำเร็จ');
+            }
+
+            const rawUsers = json?.data?.users ?? [];
+
+            const mapped: ManagedUser[] = rawUsers.map((u: any) => ({
+                id: String(u.userId),
+                firstName: u.firstName || '',
+                lastName: u.lastName || '',
+                cmuAccount: u.cmuAccount || '',
+                role: u.roleName,
+                status: u.status === 'pending' ? 'pending' : 'active',
+                createdAt: u.createdAt
+                    ? new Date(u.createdAt).toISOString().split('T')[0]
+                    : '',
+                department: u.department || '',
+                pendingCaseId: u.pendingCaseId ?? null,
+            }));
+
+            setUsers(mapped);
+        } catch (err: any) {
+            setPageError(err.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchUsers();
+    }, [fetchUsers]);
 
     // ── Filter ─────────────────────────────────────────────────
     const filtered = users.filter(u => {
@@ -89,57 +115,100 @@ export function CounselorUserManagement({
             u.lastName.toLowerCase().includes(q) ||
             u.cmuAccount.toLowerCase().includes(q) ||
             (u.department || '').toLowerCase().includes(q);
+
         const matchRole = filterRole === 'all' || u.role === filterRole;
         const matchStatus = filterStatus === 'all' || u.status === filterStatus;
         return matchSearch && matchRole && matchStatus;
     });
 
     // ── Actions ────────────────────────────────────────────────
-    const handleApprove = (id: string) => {
-        onApprove?.(id);
-        setUsers(prev => prev.map(u => u.id === id ? { ...u, status: 'active' } : u));
+    const handleApprove = async (id: string) => {
+        try {
+            const target = users.find(u => u.id === id);
+
+            if (!target?.pendingCaseId) {
+                throw new Error('ไม่พบ waiting case สำหรับผู้ใช้นี้');
+            }
+
+            const res = await fetch(
+                `${API_BASE_URL}/counselor/cases/${target.pendingCaseId}/confirm`,
+                {
+                    method: 'POST',
+                    headers: {
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+
+            const json = await res.json().catch(() => null);
+
+            if (!res.ok) {
+                throw new Error(json?.message || 'อนุมัติไม่สำเร็จ');
+            }
+
+            onApprove?.(id);
+            await fetchUsers();
+        } catch (err: any) {
+            alert(err.message || 'เกิดข้อผิดพลาด');
+        }
     };
 
     const handleSubmitAddUser = async (e: React.FormEvent) => {
         e.preventDefault();
         setSubmitError('');
 
-        // Validation
         if (!form.firstName.trim() || !form.lastName.trim() || !form.cmuAccount.trim()) {
             setSubmitError('กรุณากรอกข้อมูลให้ครบถ้วน');
             return;
         }
+
         if (!form.cmuAccount.includes('@')) {
             setSubmitError('รูปแบบ CMU Account ไม่ถูกต้อง');
             return;
         }
+
         if (form.role === 'client' && !form.department.trim()) {
             setSubmitError('กรุณาระบุคณะ/ภาควิชาสำหรับนักศึกษา');
             return;
         }
 
         setIsSubmitting(true);
-        try {
-            await onAddUser?.(form);
 
-            // เพิ่มลงใน local state (mockup)
-            const newUser: ManagedUser = {
-                id: Date.now().toString(),
-                firstName: form.firstName,
-                lastName: form.lastName,
-                cmuAccount: form.cmuAccount,
-                role: form.role,
-                status: form.role === 'client' ? 'active' : 'pending',
-                createdAt: new Date().toISOString().split('T')[0],
-                department: form.role === 'client' ? form.department : undefined,
-            };
-            setUsers(prev => [newUser, ...prev]);
+        try {
+            if (onAddUser) {
+                await onAddUser(form);
+            } else {
+                const res = await fetch(`${API_BASE_URL}/counselor/users`, {
+                    method: 'POST',
+                    headers: {
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        firstName: form.firstName.trim(),
+                        lastName: form.lastName.trim(),
+                        cmuAccount: form.cmuAccount.trim(),
+                        roleName: form.role,
+                        department: form.role === 'client' ? form.department.trim() : undefined,
+                        priority: form.role === 'client' ? form.priority : undefined
+                    })
+                });
+
+                const json = await res.json().catch(() => null);
+
+                if (!res.ok) {
+                    throw new Error(json?.message || 'เพิ่มผู้ใช้งานไม่สำเร็จ');
+                }
+            }
+
             setForm(EMPTY_FORM);
             setShowAddModal(false);
             setShowSuccess(true);
+            await fetchUsers();
             setTimeout(() => setShowSuccess(false), 3000);
-        } catch (err) {
-            setSubmitError('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
+        } catch (err: any) {
+            setSubmitError(err.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
         } finally {
             setIsSubmitting(false);
         }
@@ -159,8 +228,6 @@ export function CounselorUserManagement({
 
     return (
         <div className="p-8 max-w-7xl mx-auto font-sans">
-
-            {/* ── Header ── */}
             <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-[var(--color-text-primary)] mb-1">จัดการผู้ใช้งาน</h1>
@@ -177,15 +244,20 @@ export function CounselorUserManagement({
                 </button>
             </header>
 
-            {/* ── Success Banner ── */}
             {showSuccess && (
                 <div className="mb-6 flex items-center gap-3 bg-green-50 border border-green-200 text-green-700 rounded-2xl px-5 py-4">
                     <CheckCircle className="w-5 h-5 shrink-0" />
-                    <span className="font-medium">เพิ่มผู้ใช้งานเรียบร้อยแล้ว</span>
+                    <span className="font-medium">เพิ่มหรืออัปเดตผู้ใช้งานเรียบร้อยแล้ว</span>
                 </div>
             )}
 
-            {/* ── Filters ── */}
+            {pageError && (
+                <div className="mb-6 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 rounded-2xl px-5 py-4">
+                    <AlertCircle className="w-5 h-5 shrink-0" />
+                    <span className="font-medium">{pageError}</span>
+                </div>
+            )}
+
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-[var(--color-border)] mb-6 flex flex-wrap gap-4">
                 <div className="relative flex-1 min-w-[240px]">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -197,6 +269,7 @@ export function CounselorUserManagement({
                         onChange={e => setSearchTerm(e.target.value)}
                     />
                 </div>
+
                 <select
                     className="px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[var(--color-accent-green)]"
                     value={filterRole}
@@ -206,6 +279,7 @@ export function CounselorUserManagement({
                     <option value="client">Client (นักศึกษา)</option>
                     <option value="counselor">Counselor</option>
                 </select>
+
                 <select
                     className="px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-[var(--color-accent-green)]"
                     value={filterStatus}
@@ -217,7 +291,6 @@ export function CounselorUserManagement({
                 </select>
             </div>
 
-            {/* ── Users Table ── */}
             <div className="bg-white rounded-[2rem] shadow-sm border border-[var(--color-border)] overflow-hidden">
                 <table className="w-full text-left">
                     <thead className="bg-gray-50 border-b border-gray-100">
@@ -230,8 +303,15 @@ export function CounselorUserManagement({
                             <th className="px-6 py-4 text-sm font-bold text-gray-600 text-right">จัดการ</th>
                         </tr>
                     </thead>
+
                     <tbody className="divide-y divide-gray-50">
-                        {filtered.length === 0 ? (
+                        {loading ? (
+                            <tr>
+                                <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
+                                    กำลังโหลดข้อมูล...
+                                </td>
+                            </tr>
+                        ) : filtered.length === 0 ? (
                             <tr>
                                 <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
                                     <User className="w-10 h-10 mx-auto mb-2 opacity-20" />
@@ -241,7 +321,6 @@ export function CounselorUserManagement({
                         ) : (
                             filtered.map(user => (
                                 <tr key={user.id} className="hover:bg-gray-50/50 transition-colors">
-                                    {/* ชื่อ */}
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
                                             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${user.role === 'counselor'
@@ -262,12 +341,10 @@ export function CounselorUserManagement({
                                         </div>
                                     </td>
 
-                                    {/* CMU Account */}
                                     <td className="px-6 py-4">
                                         <span className="text-sm text-gray-600 font-mono">{user.cmuAccount}</span>
                                     </td>
 
-                                    {/* Role */}
                                     <td className="px-6 py-4">
                                         <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${user.role === 'counselor'
                                             ? 'bg-purple-100 text-purple-600'
@@ -277,7 +354,6 @@ export function CounselorUserManagement({
                                         </span>
                                     </td>
 
-                                    {/* Status */}
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-2">
                                             {statusIcon(user.status)}
@@ -287,7 +363,6 @@ export function CounselorUserManagement({
                                         </div>
                                     </td>
 
-                                    {/* ข้อมูลเพิ่มเติม */}
                                     <td className="px-6 py-4">
                                         {user.role === 'client' && user.department && (
                                             <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">
@@ -296,7 +371,6 @@ export function CounselorUserManagement({
                                         )}
                                     </td>
 
-                                    {/* Actions */}
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex justify-end gap-2">
                                             {user.status === 'pending' && (
@@ -317,7 +391,6 @@ export function CounselorUserManagement({
                 </table>
             </div>
 
-            {/* Summary */}
             <div className="mt-4 flex gap-6 text-sm text-gray-500">
                 <span>ทั้งหมด <b className="text-gray-800">{users.length}</b> คน</span>
                 <span>Client <b className="text-blue-600">{users.filter(u => u.role === 'client').length}</b></span>
@@ -325,14 +398,9 @@ export function CounselorUserManagement({
                 <span>รออนุมัติ <b className="text-orange-500">{users.filter(u => u.status === 'pending').length}</b></span>
             </div>
 
-            {/* ════════════════════════════════════════
-                Modal: เพิ่มผู้ใช้ใหม่
-            ════════════════════════════════════════ */}
             {showAddModal && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-[2rem] shadow-2xl max-w-lg w-full p-8 relative max-h-[90vh] overflow-y-auto">
-
-                        {/* Close */}
                         <button
                             onClick={() => setShowAddModal(false)}
                             className="absolute top-6 right-6 p-2 hover:bg-gray-100 rounded-xl transition-colors"
@@ -351,8 +419,6 @@ export function CounselorUserManagement({
                         </div>
 
                         <form onSubmit={handleSubmitAddUser} className="space-y-5">
-
-                            {/* Role Selection */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">ประเภทผู้ใช้</label>
                                 <div className="grid grid-cols-2 gap-3">
@@ -373,7 +439,6 @@ export function CounselorUserManagement({
                                 </div>
                             </div>
 
-                            {/* ชื่อ-นามสกุล */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อ</label>
@@ -399,7 +464,6 @@ export function CounselorUserManagement({
                                 </div>
                             </div>
 
-                            {/* CMU Account */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">CMU Account</label>
                                 <input
@@ -412,7 +476,6 @@ export function CounselorUserManagement({
                                 />
                             </div>
 
-                            {/* Fields เฉพาะ Client */}
                             {form.role === 'client' && (
                                 <>
                                     <div>
@@ -462,7 +525,6 @@ export function CounselorUserManagement({
                                 </div>
                             )}
 
-                            {/* Buttons */}
                             <div className="flex gap-3 pt-2">
                                 <button
                                     type="button"

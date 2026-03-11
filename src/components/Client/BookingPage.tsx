@@ -15,6 +15,7 @@ interface TimeSlot {
     sessionId?: number;
     counselorEmail?: string | null;
     timeStart?: string; // ISO
+    status?: string; // available | booked | closed | completed | cancelled
 }
 
 interface BookingPageProps {
@@ -22,13 +23,13 @@ interface BookingPageProps {
     onNavigateToHistory: () => void;
     hasExistingBooking?: boolean;
 
-    // keep it for compatibility (but we won’t use mock)
+    // keep it for compatibility
     schedule?: TimeSlot[];
 }
 
 type CounselorRoom = {
     roomId: number;
-    roomName: string; // shown in UI (e.g., "พี่ป๊อป (ห้อง 1)")
+    roomName: string;
     counselorEmail: string | null;
 };
 
@@ -38,6 +39,13 @@ function pad2(n: number) {
 
 function toYYYYMMDDLocal(d: Date) {
     return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+function normalizeSlotStatus(raw: any): string {
+    if (typeof raw?.status === 'string' && raw.status.trim()) {
+        return raw.status.toLowerCase();
+    }
+    return raw?.available ? 'available' : 'booked';
 }
 
 export function BookingPage({
@@ -64,7 +72,9 @@ export function BookingPage({
 
     const counselorData = useMemo(() => {
         const map: Record<string, { roomId: number; email: string | null }> = {};
-        for (const r of counselorRooms) map[r.roomName] = { roomId: r.roomId, email: r.counselorEmail };
+        for (const r of counselorRooms) {
+            map[r.roomName] = { roomId: r.roomId, email: r.counselorEmail };
+        }
         return map;
     }, [counselorRooms]);
 
@@ -72,9 +82,12 @@ export function BookingPage({
 
     const displaySchedule = schedule.length > 0 ? schedule : dbSchedule;
 
-    const filteredTimeSlots = displaySchedule.filter(slot =>
-        slot.counselor === selectedCounselor
-    );
+    const filteredTimeSlots = useMemo(() => {
+        return displaySchedule.filter(slot =>
+            slot.counselor === selectedCounselor &&
+            (slot.status || '').toLowerCase() !== 'closed'
+        );
+    }, [displaySchedule, selectedCounselor]);
 
     // ---- Load counselors (rooms) ----
     useEffect(() => {
@@ -93,7 +106,6 @@ export function BookingPage({
                 const data: CounselorRoom[] = await res.json();
                 setCounselorRooms(data);
 
-                // pick first as default
                 if (data.length > 0) setSelectedCounselor(data[0].roomName);
             } catch (e) {
                 console.error(e);
@@ -109,6 +121,7 @@ export function BookingPage({
                 setDbSchedule([]);
                 return;
             }
+
             const meta = counselorData[selectedCounselor];
             if (!meta) {
                 setDbSchedule([]);
@@ -117,8 +130,6 @@ export function BookingPage({
 
             try {
                 const dateYYYYMMDD = toYYYYMMDDLocal(selectedDate);
-
-                // IMPORTANT: expects api.config.ts has BOOKINGS.SESSIONS(roomId, date)
                 const url = API_ENDPOINTS.BOOKINGS.SESSIONS(meta.roomId, dateYYYYMMDD);
 
                 const res = await fetch(url, {
@@ -132,14 +143,22 @@ export function BookingPage({
                 }
 
                 const payload = await res.json();
-                const slots: TimeSlot[] = (payload.slots || []).map((s: any) => ({
-                    sessionId: s.sessionId,
-                    time: s.time,
-                    available: !!s.available,
-                    counselor: payload.roomName || selectedCounselor,
-                    counselorEmail: s.counselorEmail ?? meta.email ?? null,
-                    timeStart: s.timeStart,
-                }));
+
+                const slots: TimeSlot[] = (payload.slots || [])
+                    .map((s: any) => {
+                        const status = normalizeSlotStatus(s);
+
+                        return {
+                            sessionId: s.sessionId,
+                            time: s.formattedTime || s.time || '',
+                            available: status === 'available',
+                            status,
+                            counselor: payload.roomName || selectedCounselor,
+                            counselorEmail: s.counselorEmail ?? meta.email ?? null,
+                            timeStart: s.timeStart,
+                        };
+                    })
+                    .filter((slot: TimeSlot) => slot.status !== 'closed');
 
                 setDbSchedule(slots);
             } catch (e) {
@@ -210,22 +229,30 @@ export function BookingPage({
             setShowDescriptionModal(false);
             setStudentInfo({ studentId: '', faculty: '', phone: '', description: '' });
 
-            // refresh slots
             const meta = counselorData[selectedCounselor];
             if (meta) {
                 const dateYYYYMMDD = toYYYYMMDDLocal(selectedDate);
                 const url = API_ENDPOINTS.BOOKINGS.SESSIONS(meta.roomId, dateYYYYMMDD);
                 const refreshRes = await fetch(url, { headers: getAuthHeader() });
+
                 if (refreshRes.ok) {
                     const payload = await refreshRes.json();
-                    const slots: TimeSlot[] = (payload.slots || []).map((s: any) => ({
-                        sessionId: s.sessionId,
-                        time: s.time,
-                        available: !!s.available,
-                        counselor: payload.roomName || selectedCounselor,
-                        counselorEmail: s.counselorEmail ?? meta.email ?? null,
-                        timeStart: s.timeStart,
-                    }));
+                    const slots: TimeSlot[] = (payload.slots || [])
+                        .map((s: any) => {
+                            const status = normalizeSlotStatus(s);
+
+                            return {
+                                sessionId: s.sessionId,
+                                time: s.formattedTime || s.time || '',
+                                available: status === 'available',
+                                status,
+                                counselor: payload.roomName || selectedCounselor,
+                                counselorEmail: s.counselorEmail ?? meta.email ?? null,
+                                timeStart: s.timeStart,
+                            };
+                        })
+                        .filter((slot: TimeSlot) => slot.status !== 'closed');
+
                     setDbSchedule(slots);
                 }
             }
@@ -374,30 +401,48 @@ export function BookingPage({
 
                         <div className="space-y-3 overflow-y-auto pr-2 custom-scrollbar">
                             {filteredTimeSlots.length > 0 ? (
-                                filteredTimeSlots.map((slot, i) => (
-                                    <button
-                                        key={i}
-                                        disabled={!slot.available || hasExistingBooking}
-                                        onClick={() => { setSelectedSlot(slot); setShowDescriptionModal(true); }}
-                                        className={`w-full p-5 rounded-2xl flex items-center justify-between border-2 transition-all ${slot.available && !hasExistingBooking
-                                            ? 'border-gray-50 bg-gray-50 hover:border-green-500 hover:bg-white'
-                                            : 'bg-gray-50 opacity-40 cursor-not-allowed'
-                                            }`}
-                                    >
-                                        <div className="flex items-center gap-4">
-                                            <div className={`w-2 h-2 rounded-full ${slot.available && !hasExistingBooking ? 'bg-green-500' : 'bg-gray-400'}`} />
-                                            <span className="font-bold text-gray-700 text-lg">{slot.time} น.</span>
-                                        </div>
+                                filteredTimeSlots.map((slot, i) => {
+                                    const slotStatus = (slot.status || '').toLowerCase();
+                                    const isAvailable = slotStatus === 'available';
+                                    const isBooked = slotStatus === 'booked';
+                                    const canBook = isAvailable && !hasExistingBooking;
 
-                                        <span className={`text-xs font-bold px-4 py-1.5 rounded-full ${slot.available && !hasExistingBooking
-                                            ? 'bg-white text-green-600 border border-green-100'
-                                            : 'bg-gray-200 text-gray-500'
-                                            }`}
+                                    return (
+                                        <button
+                                            key={slot.sessionId ?? i}
+                                            disabled={!canBook}
+                                            onClick={() => {
+                                                if (!canBook) return;
+                                                setSelectedSlot(slot);
+                                                setShowDescriptionModal(true);
+                                            }}
+                                            className={`w-full p-5 rounded-2xl flex items-center justify-between border-2 transition-all ${canBook
+                                                ? 'border-gray-50 bg-gray-50 hover:border-green-500 hover:bg-white'
+                                                : 'bg-gray-50 opacity-40 cursor-not-allowed'
+                                                }`}
                                         >
-                                            {hasExistingBooking ? 'กรุณายกเลิกนัดเดิม' : (slot.available ? 'ว่างสำหรับการจอง' : 'มีผู้จองแล้ว')}
-                                        </span>
-                                    </button>
-                                ))
+                                            <div className="flex items-center gap-4">
+                                                <div className={`w-2 h-2 rounded-full ${canBook ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                                <span className="font-bold text-gray-700 text-lg">{slot.time} น.</span>
+                                            </div>
+
+                                            <span
+                                                className={`text-xs font-bold px-4 py-1.5 rounded-full ${canBook
+                                                    ? 'bg-white text-green-600 border border-green-100'
+                                                    : 'bg-gray-200 text-gray-500'
+                                                    }`}
+                                            >
+                                                {hasExistingBooking
+                                                    ? 'กรุณายกเลิกนัดเดิม'
+                                                    : isAvailable
+                                                        ? 'ว่างสำหรับการจอง'
+                                                        : isBooked
+                                                            ? 'มีผู้จองแล้ว'
+                                                            : 'ไม่พร้อมให้จอง'}
+                                            </span>
+                                        </button>
+                                    );
+                                })
                             ) : (
                                 <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
                                     <Calendar className="w-8 h-8 opacity-20" />
