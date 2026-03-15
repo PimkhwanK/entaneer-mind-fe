@@ -421,7 +421,7 @@ export function CounselorDashboard({
             <header className="mb-8">
                 <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">แผงควบคุมผู้ให้คำปรึกษา</h1>
                 <p className="text-[var(--color-text-secondary)] text-sm">
-                    จัดการตารางนัดหมายและบันทึกเคสนักศึกษาในความดูแลของคุณ
+                    จัดการตารางนัดหมายและบันทึกเคสผู้รับคำปรึกษาในความดูแลของคุณ
                 </p>
             </header>
 
@@ -483,7 +483,7 @@ export function CounselorDashboard({
                             <h3 className="font-bold">สร้างรหัสลงทะเบียน (Token)</h3>
                         </div>
                         <p className="text-sm text-[var(--color-text-secondary)] mb-6">
-                            สร้างรหัสเฉพาะสำหรับนักศึกษาใหม่ รูปแบบ TK-XXXXXX
+                            สร้างรหัสเฉพาะสำหรับผู้รับคำปรึกษาใหม่ รูปแบบ TK-XXXXXX
                         </p>
 
                         {generatedToken ? (
@@ -543,7 +543,7 @@ export function CounselorDashboard({
 
                     <div className="lg:col-span-2">
                         <div className="bg-white rounded-2xl shadow-sm p-6">
-                            <h2 className="text-xl mb-4">Token Dashboard</h2>
+                            <h2 className="text-xl mb-4">แดชบอร์ดสำหรับ Token</h2>
 
                             <div className="flex items-center gap-4 mb-4">
                                 <button
@@ -700,19 +700,19 @@ export function CounselorDashboard({
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
                     <div className="flex items-center gap-2 mb-4">
                         <AlertCircle className="w-5 h-5 text-[var(--color-accent-green)]" />
-                        <h3 className="font-bold">นักศึกษาที่รอการจัดคิว</h3>
+                        <h3 className="font-bold">ผู้รับคำปรึกษาที่รอการจัดคิว</h3>
                     </div>
                     {waitingStudentsData.length === 0 ? (
                         <div className="text-center py-12 text-gray-400">
                             <Users className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                            <p>ไม่มีนักศึกษารอคิวในขณะนี้</p>
+                            <p>ไม่มีผู้รับคำปรึกษาที่รอคิวในขณะนี้</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-left">
                                 <thead className="text-sm text-gray-500 border-b border-[var(--color-border)]">
                                     <tr>
-                                        <th className="px-4 py-4 font-medium">ชื่อนักศึกษา</th>
+                                        <th className="px-4 py-4 font-medium">ชื่อผู้รับคำปรึกษา</th>
                                         <th className="px-4 py-4 font-medium">รอคิวตั้งแต่</th>
                                         <th className="px-4 py-4 font-medium">ระดับความเร่งด่วน</th>
                                         <th className="px-4 py-4 font-medium">การจัดการ</th>
@@ -774,7 +774,7 @@ export function CounselorDashboard({
                                 <Users className="w-6 h-6 text-blue-600" />
                             </div>
                         </div>
-                        <p className="text-sm text-gray-500 mb-1 font-medium">นักศึกษาในระบบ</p>
+                        <p className="text-sm text-gray-500 mb-1 font-medium">ผู้รับคำปรึกษาในระบบ</p>
                         <h2 className="text-3xl font-bold text-gray-800">{systemStatsData.activeClients}</h2>
                         <p className="text-xs text-blue-600 mt-2">ผู้ใช้งานทั้งหมดที่ลงทะเบียน</p>
                     </div>
@@ -841,7 +841,7 @@ export function CounselorDashboard({
                     <div className="space-y-6">
                         <div className="bg-gradient-to-br from-green-500 to-blue-600 rounded-[2.5rem] p-8 text-white shadow-lg">
                             <h3 className="text-white/80 font-medium mb-4 flex items-center gap-2 text-sm">
-                                <Clock className="w-4 h-4" /> Average Wait Time
+                                <Clock className="w-4 h-4" /> เวลารอคิวโดยเฉลี่ย
                             </h3>
                             <p className="text-5xl font-bold mb-2">{systemStatsData.averageWaitTime}</p>
                             <p className="text-white/70 text-sm">ระยะเวลารอคิวโดยเฉลี่ยในเดือนนี้</p>
@@ -858,7 +858,7 @@ export function CounselorDashboard({
                             >
                                 <span className="flex items-center gap-2">
                                     <FileText className="w-4 h-4" />
-                                    Generate Full Report
+                                    สร้างรายงานแบบเต็มรูปแบบการวิเคราะห์
                                 </span>
                                 <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                             </button>

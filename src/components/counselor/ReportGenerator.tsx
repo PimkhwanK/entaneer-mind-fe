@@ -328,7 +328,7 @@ export function ReportGenerator({ onFetchReportData }: ReportGeneratorProps) {
     return (
         <div className="p-8 max-w-7xl mx-auto font-sans">
             <header className="mb-8">
-                <h1 className="text-2xl font-bold text-[var(--color-text-primary)] mb-1">Generate Full Report</h1>
+                <h1 className="text-2xl font-bold text-[var(--color-text-primary)] mb-1">สร้างรายงานแบบเต็มรูปแบบการวิเคราะห์</h1>
                 <p className="text-[var(--color-text-secondary)] text-sm">
                     สร้างรายงานสรุปสถิติระบบ Entaneer Mind ในช่วงเวลาที่ต้องการ
                 </p>
@@ -522,7 +522,7 @@ export function ReportGenerator({ onFetchReportData }: ReportGeneratorProps) {
 
                                 <section>
                                     <h3 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
-                                        <Clock className="w-5 h-5 text-purple-500" /> Counselor Workload
+                                        <Clock className="w-5 h-5 text-purple-500" /> งานที่ผู้ให้คำปรึกษารับผิดชอบ
                                     </h3>
                                     <div className="space-y-4">
                                         {reportData.counselorWorkload.map((c, i) => (

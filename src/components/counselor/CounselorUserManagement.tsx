@@ -125,7 +125,7 @@ export function CounselorUserManagement({
             const target = users.find(u => u.id === id);
 
             if (!target?.pendingCaseId) {
-                throw new Error('ไม่พบ waiting case สำหรับผู้ใช้นี้');
+                throw new Error('ไม่พบเคสที่รอการอนุมัติสำหรับผู้ใช้นี้');
             }
 
             const res = await fetch(
@@ -182,11 +182,6 @@ export function CounselorUserManagement({
         e.preventDefault();
         setSubmitError('');
 
-        if (!form.firstName.trim() || !form.lastName.trim() || !form.cmuAccount.trim()) {
-            setSubmitError('กรุณากรอกข้อมูลให้ครบถ้วน');
-            return;
-        }
-
         if (!form.cmuAccount.includes('@')) {
             setSubmitError('รูปแบบ CMU Account ไม่ถูกต้อง');
             return;
@@ -210,8 +205,6 @@ export function CounselorUserManagement({
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        firstName: form.firstName.trim(),
-                        lastName: form.lastName.trim(),
                         cmuAccount: form.cmuAccount.trim(),
                         roleName: form.role,
                         department: form.role === 'client' ? form.department.trim() : undefined,
@@ -299,8 +292,8 @@ export function CounselorUserManagement({
                     onChange={e => setFilterRole(e.target.value as typeof filterRole)}
                 >
                     <option value="all">ทุก Role</option>
-                    <option value="client">Client (นักศึกษา)</option>
-                    <option value="counselor">Counselor</option>
+                    <option value="client">Client (ผู้รับคำปรึกษา)</option>
+                    <option value="counselor">Counselor (ผู้ให้คำปรึกษา)</option>
                 </select>
 
                 <select
@@ -424,8 +417,8 @@ export function CounselorUserManagement({
 
             <div className="mt-4 flex gap-6 text-sm text-gray-500">
                 <span>ทั้งหมด <b className="text-gray-800">{users.length}</b> คน</span>
-                <span>Client <b className="text-blue-600">{users.filter(u => u.role === 'client').length}</b></span>
-                <span>Counselor <b className="text-purple-600">{users.filter(u => u.role === 'counselor').length}</b></span>
+                <span>ผู้รับคำปรึกษา <b className="text-blue-600">{users.filter(u => u.role === 'client').length}</b></span>
+                <span>ผู้ให้คำปรึกษา <b className="text-purple-600">{users.filter(u => u.role === 'counselor').length}</b></span>
                 <span>รออนุมัติ <b className="text-orange-500">{users.filter(u => u.status === 'pending').length}</b></span>
             </div>
 
@@ -464,34 +457,9 @@ export function CounselorUserManagement({
                                                 }`}
                                         >
                                             {r === 'counselor' ? <Shield className="w-4 h-4" /> : <User className="w-4 h-4" />}
-                                            {r === 'client' ? 'Client (นักศึกษา)' : 'Counselor'}
+                                            {r === 'client' ? 'ผู้รับคำปรึกษา' : 'ผู้ให้คำปรึกษา'}
                                         </button>
                                     ))}
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อ</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={form.firstName}
-                                        onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))}
-                                        className="w-full px-4 py-3 rounded-2xl border border-[var(--color-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-green)]"
-                                        placeholder="ชื่อ"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">นามสกุล</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={form.lastName}
-                                        onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
-                                        className="w-full px-4 py-3 rounded-2xl border border-[var(--color-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-green)]"
-                                        placeholder="นามสกุล"
-                                    />
                                 </div>
                             </div>
 
