@@ -59,8 +59,8 @@ export function BookingPage({
     const [selectedCounselor, setSelectedCounselor] = useState<string>('');
     const [showDescriptionModal, setShowDescriptionModal] = useState(false);
 
-    const [clientInfo, setClientInfo] = useState({
-        clientId: '',
+    const [studentInfo, setStudentInfo] = useState({
+        studentId: '',
         faculty: '',
         phone: '',
         description: ''
@@ -168,15 +168,26 @@ export function BookingPage({
         })();
     }, [selectedDate, selectedCounselor, counselorData]);
 
+    const handleStudentIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value.replace(/\D/g, '');
+        if (value.length <= 9) {
+            setStudentInfo({ ...studentInfo, studentId: value });
+        }
+    };
+
     const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value.replace(/\D/g, '');
         if (value.length <= 10) {
-            setClientInfo({ ...clientInfo, phone: value });
+            setStudentInfo({ ...studentInfo, phone: value });
         }
     };
 
     const handleBooking = async () => {
-        if (clientInfo.phone.length !== 10) {
+        if (studentInfo.studentId.length !== 9) {
+            alert('รหัสประจำตัวต้องมี 9 หลัก');
+            return;
+        }
+        if (studentInfo.phone.length !== 10) {
             alert('เบอร์โทรศัพท์ต้องมี 10 หลัก');
             return;
         }
@@ -191,9 +202,9 @@ export function BookingPage({
                 headers: getAuthHeader(),
                 body: JSON.stringify({
                     sessionId: selectedSlot.sessionId,
-                    clientId: clientInfo.clientId,
-                    phone: clientInfo.phone,
-                    description: clientInfo.description,
+                    studentId: studentInfo.studentId,
+                    phone: studentInfo.phone,
+                    description: studentInfo.description,
                 }),
             });
 
@@ -209,14 +220,14 @@ export function BookingPage({
             });
 
             onBook(dateStr, selectedSlot.time, {
-                ...clientInfo,
+                ...studentInfo,
                 counselorName: selectedCounselor,
                 sessionId: selectedSlot.sessionId,
                 caseId: data.caseId,
             });
 
             setShowDescriptionModal(false);
-            setClientInfo({ clientId: '', faculty: '', phone: '', description: '' });
+            setStudentInfo({ studentId: '', faculty: '', phone: '', description: '' });
 
             const meta = counselorData[selectedCounselor];
             if (meta) {
@@ -464,6 +475,22 @@ export function BookingPage({
 
                             <div className="relative">
                                 <label className="flex items-center gap-2 text-xs font-black text-gray-400 mb-2 uppercase tracking-tighter">
+                                    รหัสประจำตัว *
+                                </label>
+                                <div className="relative">
+                                    <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-green-500 outline-none"
+                                        placeholder="650610xxx"
+                                        value={studentInfo.studentId}
+                                        onChange={handleStudentIdChange}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="relative">
+                                <label className="flex items-center gap-2 text-xs font-black text-gray-400 mb-2 uppercase tracking-tighter">
                                     เบอร์โทรศัพท์ *
                                 </label>
                                 <div className="relative">
@@ -472,7 +499,7 @@ export function BookingPage({
                                         type="tel"
                                         className="w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-green-500 outline-none"
                                         placeholder="08xxxxxxxx"
-                                        value={clientInfo.phone}
+                                        value={studentInfo.phone}
                                         onChange={handlePhoneChange}
                                     />
                                 </div>
@@ -485,8 +512,8 @@ export function BookingPage({
                                 <textarea
                                     className="w-full p-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-green-500 outline-none min-h-[100px] resize-none"
                                     placeholder="เรื่องที่ต้องการปรึกษาครั้งถัดไป..."
-                                    value={clientInfo.description}
-                                    onChange={(e) => setClientInfo({ ...clientInfo, description: e.target.value })}
+                                    value={studentInfo.description}
+                                    onChange={(e) => setStudentInfo({ ...studentInfo, description: e.target.value })}
                                 />
                             </div>
 
