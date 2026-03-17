@@ -201,7 +201,7 @@ export function ClientHistory({
                         <tbody>
                             {filteredAppointments.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-12 text-center">
+                                     <td colSpan={7} className="px-6 py-12 text-center">
                                         <Calendar className="w-12 h-12 mx-auto mb-3 text-[var(--color-border)]" />
                                         <p>ไม่พบประวิติการนัดหมาย</p>
                                         <p className="text-sm text-[var(--color-text-secondary)] mt-1">
