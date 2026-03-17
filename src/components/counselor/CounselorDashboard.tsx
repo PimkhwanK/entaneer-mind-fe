@@ -16,13 +16,8 @@ import {
     FileText
 } from 'lucide-react';
 
-<<<<<<< HEAD
 export interface WaitingStudent {
     id: string; // caseId
-=======
-export interface WaitingClient {
-    id: string;
->>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
     name: string;
     waitingSince: string;
     urgency: 'low' | 'medium' | 'high';
@@ -31,7 +26,7 @@ export interface WaitingClient {
 export interface TodayAppointment {
     id: string;
     time: string;
-    clientName: string;
+    studentName: string;
     status: 'pending' | 'in-progress' | 'completed';
     caseCode: string;
 }
@@ -45,20 +40,15 @@ export interface allToken {
 }
 
 interface CounselorDashboardProps {
-    waitingClients?: WaitingClient[];
+    waitingStudents?: WaitingStudent[];
     todayAppointments?: TodayAppointment[];
     allToken?: allToken[];
     totalCasesCount?: number;
-<<<<<<< HEAD
     onScheduleAppointment?: (studentId: string) => void;
     onApproveWaiting?: (caseId: string) => void;
     onNavigateToReport?: () => void;
     onCreateToken?: (tokenCode: string) => Promise<any>;
     systemStats?: SystemStats;
-=======
-    onGenerateToken: () => string;
-    onScheduleAppointment?: (clientId: string) => void;
->>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
 }
 
 export interface SystemStats {
@@ -82,13 +72,8 @@ const MOCK_SYSTEM_STATS: SystemStats = {
 };
 
 export function CounselorDashboard({
-<<<<<<< HEAD
     waitingStudents: initialWaitingStudents,
     allToken: initialTokens,
-=======
-    waitingClients: initialWaitingClients,
-    todayAppointments: initialTodayAppointments,
->>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
     totalCasesCount: initialTotalCount,
     onApproveWaiting,
     onNavigateToReport,
@@ -101,7 +86,6 @@ export function CounselorDashboard({
     const [tokenListError, setTokenListError] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-<<<<<<< HEAD
     const [todayAppointmentsData, setTodayAppointmentsData] = useState<TodayAppointment[]>([]);
     const [waitingStudentsData, setWaitingStudentsData] = useState<WaitingStudent[]>(initialWaitingStudents || []);
     const [totalCasesData, setTotalCasesData] = useState<number>(initialTotalCount ?? 0);
@@ -263,25 +247,6 @@ export function CounselorDashboard({
         fetchSystemStats();
         fetchTokens();
     }, [fetchTodayAppointments, fetchWaitingCases, fetchSystemStats, fetchTokens]);
-=======
-    // Mockup Data
-    const mockWaitingClients: WaitingClient[] = [
-        { id: 'w1', name: 'นายสมชาย รักเรียน', waitingSince: '10:15 น.', urgency: 'high' },
-        { id: 'w2', name: 'นางสาวใจดี มีสุข', waitingSince: '10:45 น.', urgency: 'medium' },
-        { id: 'w3', name: 'นายขยัน หมั่นเพียร', waitingSince: '11:20 น.', urgency: 'low' },
-    ];
-
-    const mockTodayAppointments: TodayAppointment[] = [
-        { id: 'a1', time: '13:00', clientName: 'นายมงคล สายลุย', status: 'in-progress', caseCode: 'CASE-2024-001' },
-        { id: 'a2', time: '14:30', clientName: 'นางสาววิภาดา แก้วใส', status: 'pending', caseCode: 'CASE-2024-005' },
-        { id: 'a3', time: '10:00', clientName: 'นายธันวา มาดี', status: 'completed', caseCode: 'CASE-2023-089' },
-    ];
-
-    // เลือกใช้ข้อมูลจาก Props หรือ Mockup
-    const waitingClients = initialWaitingClients || mockWaitingClients;
-    const todayAppointments = initialTodayAppointments || mockTodayAppointments;
-    const totalCasesCount = initialTotalCount !== undefined ? initialTotalCount : 128;
->>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
 
     const handleGenerateToken = () => {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -480,13 +445,9 @@ export function CounselorDashboard({
                         </div>
                         <h4 className="font-medium">รอการจัดคิว</h4>
                     </div>
-<<<<<<< HEAD
                     <p className="text-3xl font-bold text-[var(--color-text-primary)] ml-13">
                         {waitingStudentsData.length}
                     </p>
-=======
-                    <p className="text-3xl font-bold text-[var(--color-text-primary)] ml-13">{waitingClients.length}</p>
->>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
                 </div>
 
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
@@ -813,7 +774,6 @@ export function CounselorDashboard({
                                 <Users className="w-6 h-6 text-blue-600" />
                             </div>
                         </div>
-<<<<<<< HEAD
                         <p className="text-sm text-gray-500 mb-1 font-medium">นักศึกษาในระบบ</p>
                         <h2 className="text-3xl font-bold text-gray-800">{systemStatsData.activeClients}</h2>
                         <p className="text-xs text-blue-600 mt-2">ผู้ใช้งานทั้งหมดที่ลงทะเบียน</p>
@@ -859,17 +819,6 @@ export function CounselorDashboard({
                                         <div className="flex items-center justify-between mb-2">
                                             <span className="text-sm font-semibold text-gray-600">{issue.tag}</span>
                                             <span className="text-sm font-bold text-gray-800">{issue.count} เคส</span>
-=======
-                    ) : (
-                        <div className="space-y-3">
-                            {todayAppointments.map((apt) => (
-                                <div key={apt.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:border-[var(--color-accent-blue)] transition-colors">
-                                    <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm"><User className="w-6 h-6 text-gray-400" /></div>
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-2">
-                                            <h4 className="font-bold text-[var(--color-text-primary)]">{apt.clientName}</h4>
-                                            <span className="text-[10px] px-2 py-0.5 bg-gray-200 rounded text-gray-600 font-mono">{apt.caseCode}</span>
->>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
                                         </div>
                                         <div className="w-full bg-gray-100 rounded-full h-2.5">
                                             <div
@@ -919,7 +868,6 @@ export function CounselorDashboard({
             </div>
 
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-[var(--color-border)]">
-<<<<<<< HEAD
                 <div className="flex items-center gap-2 mb-4">
                     <Activity className="w-5 h-5 text-[var(--color-accent-blue)]" />
                     <h3 className="font-bold text-gray-800">สรุปกิจกรรมระบบ</h3>
@@ -928,33 +876,6 @@ export function CounselorDashboard({
                     <div className="text-center p-4 bg-gray-50 rounded-2xl">
                         <p className="text-2xl font-bold text-gray-800">{systemStatsData.totalSessions}</p>
                         <p className="text-xs text-gray-500 mt-1">เซสชันทั้งหมด</p>
-=======
-                <div className="flex items-center gap-2 mb-4"><AlertCircle className="w-5 h-5 text-[var(--color-accent-green)]" /><h3 className="font-bold">นักศึกษาที่รอการจัดคิว</h3></div>
-                {waitingClients.length === 0 ? (
-                    <div className="text-center py-12 text-gray-400"><Users className="w-12 h-12 mx-auto mb-3 opacity-20" /><p>ไม่มีนักศึกษารอคิวในขณะนี้</p></div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                            <thead className="text-sm text-gray-500 border-b border-[var(--color-border)]">
-                                <tr>
-                                    <th className="px-4 py-4 font-medium">ชื่อนักศึกษา</th>
-                                    <th className="px-4 py-4 font-medium">รอคิวตั้งแต่</th>
-                                    <th className="px-4 py-4 font-medium">ระดับความเร่งด่วน</th>
-                                    <th className="px-4 py-4 font-medium">การจัดการ</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50 text-sm">
-                                {waitingClients.map((client) => (
-                                    <tr key={client.id} className="hover:bg-gray-50/50 transition-colors">
-                                        <td className="px-4 py-4"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center border border-green-100"><User className="w-4 h-4 text-green-600" /></div><span className="font-medium">{client.name}</span></div></td>
-                                        <td className="px-4 py-4 text-[var(--color-text-secondary)]">{client.waitingSince}</td>
-                                        <td className="px-4 py-4"><span className={`px-3 py-1 rounded-full text-[11px] font-bold border ${getUrgencyColor(client.urgency)}`}>{getUrgencyLabel(client.urgency)}</span></td>
-                                        <td className="px-4 py-4"><button onClick={() => onScheduleAppointment?.(client.id)} className="text-[var(--color-accent-blue)] font-bold hover:underline">ลงตารางนัดหมาย</button></td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
->>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
                     </div>
                     <div className="text-center p-4 bg-blue-50 rounded-2xl">
                         <p className="text-2xl font-bold text-blue-600">{systemStatsData.sessionsThisMonth}</p>

@@ -3,11 +3,7 @@ import { LogOut, Home, Calendar, User, Users, FileText, Clock, BarChart3 } from 
 
 interface LayoutProps {
     children: React.ReactNode;
-<<<<<<< HEAD
     userRole: 'student' | 'client' | 'counselor' | 'admin' | null;
-=======
-    userRole: 'client' | 'counselor' | 'admin' | null;
->>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
     currentPage: string;
     onNavigate: (page: string) => void;
     onLogout: () => void;
@@ -20,10 +16,7 @@ export function Layout({ children, userRole, currentPage, onNavigate, onLogout }
 
     const getNavItems = () => {
         switch (userRole) {
-<<<<<<< HEAD
             case 'student':
-=======
->>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
             case 'client':
                 return [
                     { icon: Home, label: 'Home', page: 'client-home' },
@@ -59,11 +52,7 @@ export function Layout({ children, userRole, currentPage, onNavigate, onLogout }
             <aside className="w-64 bg-white shadow-sm border-r border-[var(--color-border)] flex flex-col sticky top-0 h-screen">
                 <div className="p-6 border-b border-[var(--color-border)]">
                     <h3 className="text-[var(--color-accent-blue)]">Entaneer Mind</h3>
-<<<<<<< HEAD
                     <p className="text-sm text-[var(--color-text-secondary)] mt-1 capitalize">{(userRole === 'student' || userRole === 'client') ? 'Client' : userRole}</p>
-=======
-                    <p className="text-sm text-[var(--color-text-secondary)] mt-1 capitalize">{userRole === 'client' ? 'ผู้รับคำปรึกษา' : userRole}</p>
->>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
                 </div>
 
                 <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
