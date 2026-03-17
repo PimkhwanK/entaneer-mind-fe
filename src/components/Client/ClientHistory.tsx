@@ -203,9 +203,9 @@ export function ClientHistory({
                                 <tr>
                                     <td colSpan={7} className="px-6 py-12 text-center">
                                         <Calendar className="w-12 h-12 mx-auto mb-3 text-[var(--color-border)]" />
-                                        <p>No sessions found</p>
+                                        <p>ไม่พบประวิติการนัดหมาย</p>
                                         <p className="text-sm text-[var(--color-text-secondary)] mt-1">
-                                            Try adjusting your search or filter
+                                            กรุณาตรวจสอบคำค้นหาอีกครั้ง
                                         </p>
                                     </td>
                                 </tr>
