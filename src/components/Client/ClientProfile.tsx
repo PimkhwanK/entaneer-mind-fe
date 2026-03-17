@@ -172,9 +172,9 @@ export function ClientProfile({ profile: initialProfile, onSave }: ClientProfile
 
             {/* Privacy Notice */}
             <div className="mt-6 bg-[var(--color-mint-green)] rounded-3xl p-6">
-                <h4 className="mb-2">ความเป็นส่วนตัวและการเก็บรักษาข้อมูล</h4>
+                <h4 className="mb-2">Privacy & Confidentiality</h4>
                 <p className="text-sm">
-                     ข้อมูลส่วนบุคคลของคุณจะได้รับการคุ้มครองและจะถูกแบ่งปันกับผู้ให้คำปรึกษาของคุณเท่านั้น บันทึกการให้คำปรึกษาและการสื่อสารทั้งหมดจะถูกเก็บไว้เป็นความลับอย่างเคร่งครัด ตามจรรยาบรรณวิชาชีพและข้อบังคับตามพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล (PDPA)
+                    Your personal information is protected and will only be shared with your assigned counselors. All session notes and communications are kept strictly confidential in accordance with professional counseling ethics and PDPA regulations.
                 </p>
             </div>
 
