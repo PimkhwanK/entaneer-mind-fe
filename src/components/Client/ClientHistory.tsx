@@ -135,8 +135,8 @@ export function ClientHistory({
 
     return (
         <div className="p-8 max-w-7xl mx-auto">
-            <h1 className="mb-2 text-2xl font-bold">Session History</h1>
-            <p className="mb-8 text-gray-500">View your past and upcoming counseling sessions</p>
+            <h1 className="mb-2 text-3xl font-bold">ประวัติการนัดหมาย</h1>
+            <p className="mb-8 text-gray-500">รายการประวัติการนัดหมายและกำหนดการที่กำลังจะมาถึง</p>
 
             <div className="bg-white rounded-3xl p-6 shadow-sm mb-6">
                 <div className="flex flex-col md:flex-row gap-4">
