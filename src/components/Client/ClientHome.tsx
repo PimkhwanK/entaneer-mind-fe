@@ -1,11 +1,19 @@
+<<<<<<< HEAD
 import React, { useMemo } from 'react';
 import { Calendar, Clock, User, Sparkles, Timer, ArrowRight, Info } from 'lucide-react';
 
 interface UpcomingAppointment {
+=======
+import React from 'react';
+import { Calendar, Clock, User, Sparkles, Timer, ArrowRight } from 'lucide-react';
+
+interface Appointment {
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
     id: string;
     date: string;
     time: string;
     counselor: string;
+<<<<<<< HEAD
 }
 
 interface ClientHomeProps {
@@ -17,6 +25,18 @@ interface ClientHomeProps {
     isWaitingForQueue?: boolean;
     onDebugSkipWaiting?: () => void;
     hasExistingBooking: boolean;
+=======
+    status: 'upcoming' | 'completed' | 'cancelled';
+} 
+
+interface ClientHomeProps {
+    onBookSession: () => void;
+    onViewHistory: () => void; // เพิ่ม Prop สำหรับ Link ไปหน้าประวัติ
+    appointments: Appointment[];
+    isWaitingForQueue?: boolean;
+    queuePosition?: number;
+    onDebugSkipWaiting?: () => void;
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
 }
 
 const dailyQuotes = [
@@ -30,6 +50,7 @@ const dailyQuotes = [
 export function ClientHome({
     onBookSession,
     onViewHistory,
+<<<<<<< HEAD
     upcomingAppointments,
     completedCount,
     counselorCount,
@@ -41,6 +62,22 @@ export function ClientHome({
         () => dailyQuotes[new Date().getDay() % dailyQuotes.length],
         []
     );
+=======
+    appointments: initialAppointments,
+    isWaitingForQueue = false,
+    queuePosition,
+    onDebugSkipWaiting
+}: ClientHomeProps) {
+    // บังคับให้มี Mockup Data ถ้าข้อมูลที่ส่งมาว่าง (เพื่อให้เห็นข้อมูลโชว์แน่นอน)
+    const appointments: Appointment[] = initialAppointments?.length > 0 ? initialAppointments : [
+        { id: '1', date: '15 ม.ค. 2569', time: '10:00', counselor: 'พี่ป๊อป (ห้อง 1)', status: 'upcoming' },
+        { id: '2', date: '12 ม.ค. 2569', time: '14:30', counselor: 'พี่ป๊อป (ห้อง 1)', status: 'completed' },
+        { id: '3', date: '05 ม.ค. 2569', time: '09:00', counselor: 'พี่น้ำขิง (ห้อง 2)', status: 'completed' }
+    ];
+
+    const todayQuote = dailyQuotes[new Date().getDay() % dailyQuotes.length];
+    const upcomingAppointments = appointments.filter(apt => apt.status === 'upcoming');
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
 
     if (isWaitingForQueue) {
         return (
@@ -53,9 +90,19 @@ export function ClientHome({
                     พี่ป๊อปกำลังพิจารณาและจัดสรรผู้ให้คำปรึกษาที่เหมาะสมกับคุณ
                     เราจะแจ้งเตือนคุณผ่านทางหน้าเพจ, เว็บไซต์ และ Google Calendar เมื่อตารางเวลาลงตัว
                 </p>
+<<<<<<< HEAD
                 <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 max-w-lg mb-8">
                     <p className="text-amber-800 text-sm italic">"ระหว่างรอ... อย่าลืมใจดีกับตัวเองให้มากๆ นะครับ"</p>
                 </div>
+=======
+
+                <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 max-w-lg mb-8">
+                    <p className="text-amber-800 text-sm italic">
+                        "ระหว่างรอ... อย่าลืมใจดีกับตัวเองให้มากๆ นะครับ"
+                    </p>
+                </div>
+
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
                 <button
                     onClick={onDebugSkipWaiting}
                     className="flex items-center gap-2 text-sm text-gray-400 hover:text-[var(--color-accent-blue)] transition-colors"
@@ -87,6 +134,7 @@ export function ClientHome({
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                 <div className="lg:col-span-1">
                     <button
+<<<<<<< HEAD
                         onClick={hasExistingBooking ? onViewHistory : onBookSession}
                         className={`w-full p-8 rounded-[2rem] shadow-md flex flex-col items-center justify-center gap-4 group h-full min-h-[250px] transition-all ${hasExistingBooking
                                 ? 'bg-amber-50 border-2 border-amber-200 text-amber-800 hover:bg-amber-100'
@@ -106,6 +154,17 @@ export function ClientHome({
                             <span className={`text-sm ${hasExistingBooking ? 'text-amber-700 font-medium underline' : 'opacity-80'}`}>
                                 {hasExistingBooking ? 'กรุณายกเลิกนัดเดิมที่หน้าประวัติ' : 'นัดหมายต่อเนื่องหรือขอคำปรึกษาใหม่'}
                             </span>
+=======
+                        onClick={onBookSession}
+                        className="w-full bg-[var(--color-accent-green)] text-white p-8 rounded-[2rem] hover:opacity-90 transition-all shadow-md hover:shadow-lg flex flex-col items-center justify-center gap-4 group h-full min-h-[250px]"
+                    >
+                        <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <Calendar className="w-8 h-8 text-white" />
+                        </div>
+                        <div className="text-center">
+                            <span className="text-xl font-bold block mb-1">จองเวลารับคำปรึกษา</span>
+                            <span className="text-sm opacity-80">นัดหมายต่อเนื่องหรือขอคำปรึกษาใหม่</span>
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
                         </div>
                     </button>
                 </div>
@@ -113,7 +172,14 @@ export function ClientHome({
                 <div className="lg:col-span-2 bg-white rounded-[2rem] p-8 shadow-sm border border-[var(--color-border)]">
                     <div className="flex items-center justify-between mb-6">
                         <h3 className="text-lg font-bold text-gray-900">การนัดหมายที่กำลังจะมาถึง</h3>
+<<<<<<< HEAD
                         <button onClick={onViewHistory} className="text-xs text-[var(--color-accent-blue)] font-bold hover:underline">
+=======
+                        <button
+                            onClick={onViewHistory} // แก้ไขให้กดแล้วไปหน้าประวัติ
+                            className="text-xs text-[var(--color-accent-blue)] font-bold hover:underline"
+                        >
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
                             ประวัติทั้งหมด
                         </button>
                     </div>
@@ -123,20 +189,36 @@ export function ClientHome({
                             <div className="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <Calendar className="w-8 h-8 text-gray-300" />
                             </div>
+<<<<<<< HEAD
                             <p className="text-gray-400">ไม่มีนัดหมายที่กำลังจะมาถึง</p>
+=======
+                            <p className="text-gray-400">ไม่มีนัดหมายใหม่ในขณะนี้</p>
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
                         </div>
                     ) : (
                         <div className="space-y-4">
                             {upcomingAppointments.map((apt) => (
+<<<<<<< HEAD
                                 <div key={apt.id} className="flex flex-col md:flex-row md:items-center gap-4 p-5 bg-[var(--color-primary-blue)] rounded-2xl border border-blue-50">
+=======
+                                <div
+                                    key={apt.id}
+                                    className="flex flex-col md:flex-row md:items-center gap-4 p-5 bg-[var(--color-primary-blue)] rounded-2xl border border-blue-50"
+                                >
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
                                     <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shrink-0">
                                         <User className="w-6 h-6 text-[var(--color-accent-green)]" />
                                     </div>
                                     <div className="flex-1">
+<<<<<<< HEAD
                                         <h4 className="font-bold text-[var(--color-text-primary)]">
                                             ผู้ให้คำปรึกษา: {apt.counselor}
                                         </h4>
                                         <div className="flex gap-4 mt-1 flex-wrap">
+=======
+                                        <h4 className="font-bold text-[var(--color-text-primary)]">ผู้ให้คำปรึกษา: {apt.counselor}</h4>
+                                        <div className="flex gap-4 mt-1">
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
                                             <span className="text-sm text-gray-500 flex items-center gap-1">
                                                 <Calendar className="w-4 h-4" /> {apt.date}
                                             </span>
@@ -163,7 +245,13 @@ export function ClientHome({
                         </div>
                         <div>
                             <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">เซสชันที่เสร็จสิ้น</p>
+<<<<<<< HEAD
                             <p className="text-2xl font-bold text-gray-900">{completedCount}</p>
+=======
+                            <p className="text-2xl font-bold text-gray-900">
+                                {appointments.filter(a => a.status === 'completed').length}
+                            </p>
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
                         </div>
                     </div>
                 </div>
@@ -174,8 +262,15 @@ export function ClientHome({
                             <User className="w-6 h-6 text-purple-600" />
                         </div>
                         <div>
+<<<<<<< HEAD
                             <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">ผู้เชี่ยวชาญในระบบ</p>
                             <p className="text-2xl font-bold text-gray-900">{counselorCount}</p>
+=======
+                            <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">ผู้เชี่ยวชาญที่ดูแลคุณ</p>
+                            <p className="text-2xl font-bold text-gray-900">
+                                {new Set(appointments.map(apt => apt.counselor)).size}
+                            </p>
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
                         </div>
                     </div>
                 </div>

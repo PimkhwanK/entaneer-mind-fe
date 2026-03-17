@@ -12,7 +12,10 @@ export interface TodayAppointment {
     id: string;
     time: string;
     clientName: string;
+<<<<<<< HEAD
     studentName: string;
+=======
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
     status: 'pending' | 'in-progress' | 'completed';
     caseCode: string;
 }

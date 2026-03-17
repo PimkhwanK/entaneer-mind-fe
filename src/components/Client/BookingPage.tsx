@@ -1,27 +1,37 @@
+<<<<<<< HEAD
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     Calendar, Clock, User, ChevronLeft, ChevronRight, X,
     Info, Phone, Hash, ArrowRight
 } from 'lucide-react';
 import { API_ENDPOINTS, getAuthHeader } from '../../config/api.config';
+=======
+import React, { useState } from 'react';
+import { Calendar, Clock, User, ChevronLeft, ChevronRight, X, Bell, Info, Phone, Hash, ArrowRight } from 'lucide-react';
+import { useGoogleLogin } from '@react-oauth/google';
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
 
 interface TimeSlot {
     time: string;
     available: boolean;
     counselor: string;
     day?: string;
+<<<<<<< HEAD
 
     // From DB
     sessionId?: number;
     counselorEmail?: string | null;
     timeStart?: string; // ISO
     status?: string; // available | booked | closed | completed | cancelled
+=======
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
 }
 
 interface BookingPageProps {
     onBook: (date: string, time: string, details: any) => void;
     onNavigateToHistory: () => void;
     hasExistingBooking?: boolean;
+<<<<<<< HEAD
 
     // keep it for compatibility
     schedule?: TimeSlot[];
@@ -48,10 +58,16 @@ function normalizeSlotStatus(raw: any): string {
     return raw?.available ? 'available' : 'booked';
 }
 
+=======
+    schedule?: TimeSlot[];
+}
+
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
 export function BookingPage({
     onBook,
     onNavigateToHistory,
     hasExistingBooking = false,
+<<<<<<< HEAD
     schedule = [],
 }: BookingPageProps) {
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -61,11 +77,23 @@ export function BookingPage({
 
     const [studentInfo, setStudentInfo] = useState({
         studentId: '',
+=======
+    schedule = []
+}: BookingPageProps) {
+    const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+    const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
+    const [selectedCounselor, setSelectedCounselor] = useState('พี่ป๊อป (ห้อง 1)');
+    const [showDescriptionModal, setShowDescriptionModal] = useState(false);
+
+    const [clientInfo, setClientInfo] = useState({
+        clientId: '',
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
         faculty: '',
         phone: '',
         description: ''
     });
 
+<<<<<<< HEAD
     // ---- DB data ----
     const [counselorRooms, setCounselorRooms] = useState<CounselorRoom[]>([]);
     const [dbSchedule, setDbSchedule] = useState<TimeSlot[]>([]);
@@ -172,12 +200,46 @@ export function BookingPage({
         const value = e.target.value.replace(/\D/g, '');
         if (value.length <= 9) {
             setStudentInfo({ ...studentInfo, studentId: value });
+=======
+    const [syncWithGoogle, setSyncWithGoogle] = useState(false);
+    const [googleToken, setGoogleToken] = useState<string | null>(null);
+
+    // Mockup Data กรณีไม่มีข้อมูลส่งมาจาก props
+    const mockSchedule: TimeSlot[] = [
+        { time: '09:00', available: true, counselor: 'พี่ป๊อป (ห้อง 1)' },
+        { time: '10:30', available: true, counselor: 'พี่ป๊อป (ห้อง 1)' },
+        { time: '13:00', available: false, counselor: 'พี่ป๊อป (ห้อง 1)' },
+        { time: '14:30', available: true, counselor: 'พี่ป๊อป (ห้อง 1)' },
+        { time: '09:00', available: true, counselor: 'พี่น้ำขิง (ห้อง 2)' },
+        { time: '10:30', available: false, counselor: 'พี่น้ำขิง (ห้อง 2)' },
+        { time: '13:00', available: true, counselor: 'พี่น้ำขิง (ห้อง 2)' },
+    ];
+
+    const displaySchedule = schedule.length > 0 ? schedule : mockSchedule;
+
+    const counselorData: { [key: string]: { room: string, email: string } } = {
+        'พี่ป๊อป (ห้อง 1)': { room: 'ห้อง 1', email: 'fordsaranpong@gmail.com' },
+        'พี่น้ำขิง (ห้อง 2)': { room: 'ห้อง 2', email: 'pimkhwan2002@gmail.com' }
+    };
+
+    const counselors = Object.keys(counselorData);
+
+    const filteredTimeSlots = displaySchedule.filter(slot =>
+        slot.counselor === selectedCounselor
+    );
+
+    const handleClientIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value.replace(/\D/g, '');
+        if (value.length <= 9) {
+            setClientInfo({ ...clientInfo, clientId: value });
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
         }
     };
 
     const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value.replace(/\D/g, '');
         if (value.length <= 10) {
+<<<<<<< HEAD
             setStudentInfo({ ...studentInfo, phone: value });
         }
     };
@@ -215,10 +277,77 @@ export function BookingPage({
 
             const data = await res.json();
 
+=======
+            setClientInfo({ ...clientInfo, phone: value });
+        }
+    };
+
+    const createGoogleEvent = async (date: Date, time: string, info: any, counselorName: string) => {
+        const [hours, minutes] = time.split(':');
+        const startDateTime = new Date(date);
+        startDateTime.setHours(parseInt(hours), parseInt(minutes), 0);
+
+        const endDateTime = new Date(startDateTime);
+        endDateTime.setHours(startDateTime.getHours() + 1);
+
+        const counselorEmail = counselorData[counselorName].email;
+
+        const event = {
+            summary: `นัดหมายปรึกษา: ${counselorName} (Entaneer Mind)`,
+            description: `รหัสประจำตัว: ${info.clientId}\nเบอร์โทร: ${info.phone}\nเรื่องที่ปรึกษา: ${info.description}`,
+            start: { dateTime: startDateTime.toISOString(), timeZone: 'Asia/Bangkok' },
+            end: { dateTime: endDateTime.toISOString(), timeZone: 'Asia/Bangkok' },
+            attendees: [
+                { email: counselorEmail }
+            ],
+            reminders: {
+                useDefault: false,
+                overrides: [
+                    { method: 'email', minutes: 1440 },
+                    { method: 'popup', minutes: 30 },
+                ],
+            },
+        };
+
+        const response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=all', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${googleToken}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(event),
+        });
+
+        if (!response.ok) throw new Error('Failed to create Google event');
+        const data = await response.json();
+        return data.id;
+    };
+
+    const loginToGoogle = useGoogleLogin({
+        onSuccess: (tokenResponse) => {
+            setGoogleToken(tokenResponse.access_token);
+            setSyncWithGoogle(true);
+        },
+        scope: 'https://www.googleapis.com/auth/calendar.events',
+    });
+
+    const handleBooking = async () => {
+        if (clientInfo.clientId.length !== 9) {
+            alert('รหัสประจำตัวต้องมี 9 หลัก');
+            return;
+        }
+        if (clientInfo.phone.length !== 10) {
+            alert('เบอร์โทรศัพท์ต้องมี 10 หลัก');
+            return;
+        }
+
+        if (selectedSlot) {
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
             const dateStr = selectedDate.toLocaleDateString('th-TH', {
                 month: 'short', day: 'numeric', year: 'numeric'
             });
 
+<<<<<<< HEAD
             onBook(dateStr, selectedSlot.time, {
                 ...studentInfo,
                 counselorName: selectedCounselor,
@@ -259,6 +388,27 @@ export function BookingPage({
         } catch (e: any) {
             console.error(e);
             alert(e?.message || 'จองไม่สำเร็จ');
+=======
+            let googleEventId = null;
+
+            if (syncWithGoogle && googleToken) {
+                try {
+                    googleEventId = await createGoogleEvent(selectedDate, selectedSlot.time, clientInfo, selectedCounselor);
+                } catch (error) {
+                    console.error("Google Sync Error:", error);
+                }
+            }
+
+            onBook(dateStr, selectedSlot.time, {
+                ...clientInfo,
+                googleEventId,
+                googleToken: syncWithGoogle ? googleToken : null,
+                counselorName: selectedCounselor
+            });
+
+            setShowDescriptionModal(false);
+            setClientInfo({ clientId: '', faculty: '', phone: '', description: '' });
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
         }
     };
 
@@ -278,6 +428,10 @@ export function BookingPage({
                 <p className="text-gray-500">เลือกผู้ให้คำปรึกษา วันที่ และเวลาที่ท่านสะดวก</p>
             </header>
 
+<<<<<<< HEAD
+=======
+            {/* ส่วนที่แก้ไข: ปรับให้คลิกได้เฉพาะข้อความและไอคอนลูกศร */}
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
             <div className="mb-8 p-5 bg-amber-50 border border-amber-200 rounded-3xl flex gap-4 items-center shadow-sm">
                 <div className="bg-amber-100 p-2 rounded-full">
                     <Info className="w-5 h-5 text-amber-600" />
@@ -293,6 +447,7 @@ export function BookingPage({
                                 ตรวจพบว่าคุณมีนัดหมายอยู่แล้ว กรุณายกเลิกนัดเดิมที่หน้าประวัติก่อนจองใหม่
                             </span>
                         ) : (
+<<<<<<< HEAD
                             <span>
                                 {' '}
                                 หากต้องการเปลี่ยนเวลา{' '}
@@ -304,6 +459,9 @@ export function BookingPage({
                                 </span>{' '}
                                 ก่อนทำรายการใหม่
                             </span>
+=======
+                            <span> หากต้องการเปลี่ยนเวลา <span onClick={onNavigateToHistory} className="font-bold underline text-amber-900 decoration-amber-500 underline-offset-4 cursor-pointer hover:text-black transition-colors">กรุณายกเลิกนัดเดิมที่หน้าประวัติ</span> ก่อนทำรายการใหม่</span>
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
                         )}
                     </p>
                 </div>
@@ -317,16 +475,23 @@ export function BookingPage({
                 <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-gray-700">
                     <User className="w-5 h-5 text-green-600" /> 1. เลือกผู้ให้คำปรึกษา
                 </h3>
+<<<<<<< HEAD
 
+=======
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {counselors.map((name) => (
                         <button
                             key={name}
                             onClick={() => setSelectedCounselor(name)}
+<<<<<<< HEAD
                             className={`p-6 rounded-[2rem] border-2 transition-all text-left flex items-center justify-between ${selectedCounselor === name
                                 ? 'border-green-500 bg-green-50 shadow-md shadow-green-100'
                                 : 'border-white bg-white hover:border-gray-200 shadow-sm'
                                 }`}
+=======
+                            className={`p-6 rounded-[2rem] border-2 transition-all text-left flex items-center justify-between ${selectedCounselor === name ? 'border-green-500 bg-green-50 shadow-md shadow-green-100' : 'border-white bg-white hover:border-gray-200 shadow-sm'}`}
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
                         >
                             <p className={`font-bold text-lg ${selectedCounselor === name ? 'text-green-800' : 'text-gray-700'}`}>{name}</p>
                             <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${selectedCounselor === name ? 'border-green-500 bg-green-500' : 'border-gray-200'}`}>
@@ -344,6 +509,7 @@ export function BookingPage({
                     </h3>
                     <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-50">
                         <div className="flex items-center justify-between mb-8">
+<<<<<<< HEAD
                             <h4 className="font-bold text-xl">
                                 {selectedDate.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}
                             </h4>
@@ -367,6 +533,17 @@ export function BookingPage({
                             {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(d => <div key={d}>{d}</div>)}
                         </div>
 
+=======
+                            <h4 className="font-bold text-xl">{selectedDate.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}</h4>
+                            <div className="flex gap-2">
+                                <button onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1, 1))} className="p-3 hover:bg-gray-100 rounded-2xl transition-colors"><ChevronLeft className="w-5 h-5" /></button>
+                                <button onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 1))} className="p-3 hover:bg-gray-100 rounded-2xl transition-colors"><ChevronRight className="w-5 h-5" /></button>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-7 gap-2 text-center text-xs font-black text-gray-400 mb-4 tracking-widest">
+                            {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(d => <div key={d}>{d}</div>)}
+                        </div>
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
                         <div className="grid grid-cols-7 gap-3">
                             {Array.from({ length: startingDayOfWeek }).map((_, i) => <div key={i} />)}
                             {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -376,6 +553,7 @@ export function BookingPage({
                                     <button
                                         key={day}
                                         onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), day))}
+<<<<<<< HEAD
                                         className={`aspect-square rounded-2xl text-base font-medium transition-all ${isSelected
                                             ? 'bg-green-500 text-white shadow-lg shadow-green-200 scale-110'
                                             : 'hover:bg-green-50 text-gray-600'
@@ -383,6 +561,10 @@ export function BookingPage({
                                     >
                                         {day}
                                     </button>
+=======
+                                        className={`aspect-square rounded-2xl text-base font-medium transition-all ${isSelected ? 'bg-green-500 text-white shadow-lg shadow-green-200 scale-110' : 'hover:bg-green-50 text-gray-600'}`}
+                                    >{day}</button>
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
                                 );
                             })}
                         </div>
@@ -393,6 +575,7 @@ export function BookingPage({
                     <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-gray-700">
                         <Clock className="w-5 h-5 text-green-600" /> 3. เลือกเวลา
                     </h3>
+<<<<<<< HEAD
 
                     <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-50 h-[460px] flex flex-col">
                         <div className="mb-4 text-sm text-gray-400 font-medium">
@@ -443,6 +626,28 @@ export function BookingPage({
                                         </button>
                                     );
                                 })
+=======
+                    <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-50 h-[460px] flex flex-col">
+                        <div className="mb-4 text-sm text-gray-400 font-medium">ตารางเวลาสำหรับ {selectedDate.toLocaleDateString('th-TH', { dateStyle: 'long' })}</div>
+                        <div className="space-y-3 overflow-y-auto pr-2 custom-scrollbar">
+                            {filteredTimeSlots.length > 0 ? (
+                                filteredTimeSlots.map((slot, i) => (
+                                    <button
+                                        key={i}
+                                        disabled={!slot.available || hasExistingBooking}
+                                        onClick={() => { setSelectedSlot(slot); setShowDescriptionModal(true); }}
+                                        className={`w-full p-5 rounded-2xl flex items-center justify-between border-2 transition-all ${slot.available && !hasExistingBooking ? 'border-gray-50 bg-gray-50 hover:border-green-500 hover:bg-white' : 'bg-gray-50 opacity-40 cursor-not-allowed'}`}
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className={`w-2 h-2 rounded-full ${slot.available && !hasExistingBooking ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                            <span className="font-bold text-gray-700 text-lg">{slot.time} น.</span>
+                                        </div>
+                                        <span className={`text-xs font-bold px-4 py-1.5 rounded-full ${slot.available && !hasExistingBooking ? 'bg-white text-green-600 border border-green-100' : 'bg-gray-200 text-gray-500'}`}>
+                                            {hasExistingBooking ? 'กรุณายกเลิกนัดเดิม' : (slot.available ? 'ว่างสำหรับการจอง' : 'มีผู้จองแล้ว')}
+                                        </span>
+                                    </button>
+                                ))
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
                             ) : (
                                 <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
                                     <Calendar className="w-8 h-8 opacity-20" />
@@ -459,12 +664,16 @@ export function BookingPage({
                     <div className="bg-white rounded-[3rem] shadow-2xl max-w-md w-full p-10 max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center mb-8">
                             <h3 className="text-2xl font-bold text-gray-800">ยืนยันข้อมูลนัดหมาย</h3>
+<<<<<<< HEAD
                             <button
                                 onClick={() => setShowDescriptionModal(false)}
                                 className="bg-gray-100 p-2 rounded-full hover:bg-gray-200"
                             >
                                 <X className="w-5 h-5 text-gray-500" />
                             </button>
+=======
+                            <button onClick={() => setShowDescriptionModal(false)} className="bg-gray-100 p-2 rounded-full hover:bg-gray-200"><X className="w-5 h-5 text-gray-500" /></button>
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
                         </div>
 
                         <div className="space-y-5">
@@ -474,38 +683,56 @@ export function BookingPage({
                             </div>
 
                             <div className="relative">
+<<<<<<< HEAD
                                 <label className="flex items-center gap-2 text-xs font-black text-gray-400 mb-2 uppercase tracking-tighter">
                                     รหัสประจำตัว *
                                 </label>
+=======
+                                <label className="flex items-center gap-2 text-xs font-black text-gray-400 mb-2 uppercase tracking-tighter">รหัสประจำตัว *</label>
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
                                 <div className="relative">
                                     <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                     <input
                                         type="text"
                                         className="w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-green-500 outline-none"
                                         placeholder="650610xxx"
+<<<<<<< HEAD
                                         value={studentInfo.studentId}
                                         onChange={handleStudentIdChange}
+=======
+                                        value={clientInfo.clientId}
+                                        onChange={handleClientIdChange}
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
                                     />
                                 </div>
                             </div>
 
                             <div className="relative">
+<<<<<<< HEAD
                                 <label className="flex items-center gap-2 text-xs font-black text-gray-400 mb-2 uppercase tracking-tighter">
                                     เบอร์โทรศัพท์ *
                                 </label>
+=======
+                                <label className="flex items-center gap-2 text-xs font-black text-gray-400 mb-2 uppercase tracking-tighter">เบอร์โทรศัพท์ *</label>
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
                                 <div className="relative">
                                     <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                     <input
                                         type="tel"
                                         className="w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-green-500 outline-none"
                                         placeholder="08xxxxxxxx"
+<<<<<<< HEAD
                                         value={studentInfo.phone}
+=======
+                                        value={clientInfo.phone}
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
                                         onChange={handlePhoneChange}
                                     />
                                 </div>
                             </div>
 
                             <div>
+<<<<<<< HEAD
                                 <label className="block text-xs font-black text-gray-400 mb-2 uppercase tracking-tighter">
                                     เรื่องที่ต้องการปรึกษา
                                 </label>
@@ -521,6 +748,23 @@ export function BookingPage({
                                 onClick={handleBooking}
                                 className="w-full py-5 bg-green-500 text-white font-bold text-lg rounded-[1.5rem] shadow-xl shadow-green-200 hover:bg-green-600 hover:-translate-y-1 transition-all active:scale-95"
                             >
+=======
+                                <label className="block text-xs font-black text-gray-400 mb-2 uppercase tracking-tighter">เรื่องที่ต้องการปรึกษา</label>
+                                <textarea className="w-full p-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-green-500 outline-none min-h-[100px] resize-none" placeholder="เรื่องที่ต้องการปรึกษาครั้งถัดไป..." value={clientInfo.description} onChange={(e) => setClientInfo({ ...clientInfo, description: e.target.value })} />
+                            </div>
+
+                            <button onClick={() => !syncWithGoogle && loginToGoogle()} className={`w-full p-5 rounded-2xl border-2 flex items-center justify-between transition-all ${syncWithGoogle ? 'bg-green-600 border-green-600 text-white' : 'border-gray-100 bg-white hover:border-gray-200'}`}>
+                                <div className="flex items-center gap-3">
+                                    <Bell className={`w-5 h-5 ${syncWithGoogle ? 'text-white' : 'text-gray-400'}`} />
+                                    <span className="text-sm font-bold">แจ้งเตือนผู้ให้คำปรึกษา (Calendar)</span>
+                                </div>
+                                <div className={`w-10 h-5 rounded-full relative ${syncWithGoogle ? 'bg-white/20' : 'bg-gray-200'}`}>
+                                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${syncWithGoogle ? 'right-1' : 'left-1'}`} />
+                                </div>
+                            </button>
+
+                            <button onClick={handleBooking} className="w-full py-5 bg-green-500 text-white font-bold text-lg rounded-[1.5rem] shadow-xl shadow-green-200 hover:bg-green-600 hover:-translate-y-1 transition-all active:scale-95">
+>>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
                                 ยืนยันนัดหมาย
                             </button>
                         </div>
