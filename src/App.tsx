@@ -6,7 +6,6 @@ import { TokenModal } from './components/TokenModal';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AlertCircle } from 'lucide-react';
 
-<<<<<<< HEAD
 import { API_ENDPOINTS, API_BASE_URL, getAuthHeader } from './config/api.config';
 import type { UserRole, TodayAppointment, TimeBlock } from './types';
 
@@ -49,77 +48,6 @@ const getSavedPage = () => {
     return localStorage.getItem(PAGE_KEY) || '';
   } catch {
     return '';
-=======
-import { API_ENDPOINTS, getAuthHeader } from './config/api.config';
-import type { UserRole, Appointment, WaitingClient, TodayAppointment, TimeBlock } from './types';
-
-// Components
-import { BookingPage } from './components/Client/BookingPage';
-import { ClientHistory } from './components/Client/ClientHistory';
-import { ClientProfile } from './components/Client/ClientProfile';
-import { CounselorDashboard } from './components/counselor/CounselorDashboard';
-import { CaseNotePage } from './components/counselor/CaseNotePage';
-import { ManageSchedule } from './components/counselor/ManageSchedule';
-import { UrgencyModal } from './components/ClientUrgencyPage'; 
-
-// --- Interface & Component: ClientHome ---
-interface ClientHomeProps {
-  onBookSession: () => void;
-  onViewHistory: () => void;
-  appointments: Appointment[];
-  isWaitingForQueue?: boolean;
-  queuePosition?: number;
-  onDebugSkipWaiting?: () => void;
-  hasExistingBooking: boolean;
-}
-
-const dailyQuotes = [
-  "สุขภาพจิตของคุณคือสิ่งสำคัญ ความสุขของคุณเป็นเรื่องจำเป็น การดูแลตัวเองเป็นเรื่องที่ต้องทำ",
-  "ความคิดบวกเพียงเล็กน้อยสามารถเปลี่ยนวันทั้งวันของคุณได้",
-  "ไม่เป็นไรถ้าคุณจะรู้สึกไม่โอเค เราพร้อมรับฟังและอยู่ตรงนี้เพื่อคุณ",
-  "การเยียวยาต้องใช้เวลา ให้ความพยายามกับตัวเองอย่างใจเย็นนะ",
-  "คุณเข้มแข็งกว่าที่คุณคิด และกล้าหาญกว่าที่คุณเชื่อ",
-];
-
-export function ClientHome({
-  onBookSession,
-  onViewHistory,
-  appointments: initialAppointments,
-  isWaitingForQueue = false,
-  onDebugSkipWaiting,
-  hasExistingBooking
-}: ClientHomeProps) {
-  const appointments: Appointment[] = initialAppointments?.length > 0 ? initialAppointments : [
-    { id: '1', date: '15 ม.ค. 2569', time: '10:00', counselor: 'พี่ป๊อป (ห้อง 1)', status: 'upcoming' },
-    { id: '2', date: '12 ม.ค. 2569', time: '14:30', counselor: 'พี่ป๊อป (ห้อง 1)', status: 'completed' },
-    { id: '3', date: '05 ม.ค. 2569', time: '09:00', counselor: 'พี่น้ำขิง (ห้อง 2)', status: 'completed' }
-  ];
-
-  const todayQuote = dailyQuotes[new Date().getDay() % dailyQuotes.length];
-  const upcomingAppointments = appointments.filter(apt => apt.status === 'upcoming');
-
-  if (isWaitingForQueue) {
-    return (
-      <div className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center p-8 text-center font-sans">
-        <div className="w-24 h-24 rounded-full bg-blue-50 flex items-center justify-center mb-6">
-          <div className="relative">
-            <Timer className="w-12 h-12 text-[var(--color-accent-blue)] animate-pulse" />
-          </div>
-        </div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">ได้รับข้อมูลของคุณเรียบร้อยแล้ว</h1>
-        <p className="text-lg text-gray-600 max-w-md mb-8 leading-relaxed">
-          พี่ป๊อปกำลังพิจารณาและจัดสรรผู้ให้คำปรึกษาที่เหมาะสมกับคุณ
-          เราจะแจ้งเตือนคุณผ่านทางหน้าเพจ, เว็บไซต์ และ Google Calendar เมื่อตารางเวลาลงตัว
-        </p>
-        <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 max-w-lg mb-8">
-          <p className="text-amber-800 text-sm italic">"ระหว่างรอ... อย่าลืมใจดีกับตัวเองให้มากๆ นะครับ"</p>
-        </div>
-        <button onClick={onDebugSkipWaiting} className="flex items-center gap-2 text-sm text-gray-400 hover:text-[var(--color-accent-blue)]">
-          เข้าสู่หน้าหลักชั่วคราว (เพื่อการทดสอบ) <ArrowRight className="w-4 h-4" />
-        </button>
-      </div>
-    );
->>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
   }
 };
 const savePage = (p: string) => {
@@ -140,23 +68,12 @@ export default function App() {
   const [userData, setUserData] = useState<any>(null);
   const [currentPage, _setCurrentPage] = useState(getSavedPage());
   const [errorMessage, setErrorMessage] = useState('');
-<<<<<<< HEAD
   const [showUrgency, setShowUrgency] = useState(false);
   const [showPDPA, setShowPDPA] = useState(false);
   const [showToken, setShowToken] = useState(false);
   const [debugForceShowHome, setDebugForceShowHome] = useState(false);
   const [appointments, setAppointments] = useState<ClientHistoryAppointment[]>([]);
   const [todayAppointments, setTodayAppointments] = useState<TodayAppointment[]>([]);
-=======
-  const [showUrgency,setShowUrgency] = useState(false);
-  const [showPDPA, setShowPDPA] = useState(false);
-  const [showToken, setShowToken] = useState(false);
-  const [debugForceShowHome, setDebugForceShowHome] = useState(false);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [waitingClients, setWaitingClients] = useState<WaitingClient[]>([]);
-  const [todayAppointments, setTodayAppointments] = useState<TodayAppointment[]>([]);
-  const [allUsers, setAllUsers] = useState<any[]>([]);
->>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
   const [counselorSchedule, setCounselorSchedule] = useState<TimeBlock[]>([]);
   const [scheduleDate, setScheduleDate] = useState<Date>(new Date());
   const [adminStats, setAdminStats] = useState<any>(null);
@@ -164,42 +81,9 @@ export default function App() {
   const [waitingCases, setWaitingCases] = useState<any[]>([]);
   const refreshTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-<<<<<<< HEAD
   const setCurrentPage = useCallback((page: string) => {
     _setCurrentPage(page);
     savePage(page);
-=======
-  // Logic ตรวจสอบว่ามีนัดหมายที่ยังไม่เกิดขึ้นหรือไม่
-  const hasUpcomingBooking = useMemo(() => {
-    return appointments.some(apt => apt.status === 'upcoming');
-  }, [appointments]);
-
-  const createHeaders = (additional: Record<string, string> = {}) => ({ ...additional, ...(getAuthHeader() as Record<string, string>) } as HeadersInit);
-
-  const fetchClientData = async () => {
-    try {
-      const res = await fetch(API_ENDPOINTS.APPOINTMENTS.MY, { headers: createHeaders() });
-      if (res.ok) setAppointments(await res.json());
-      else setAppointments([]);
-    } catch (e) { setAppointments([]); }
-  };
-
-  const fetchCounselorData = async () => {
-    try {
-      const res = await fetch(API_ENDPOINTS.APPOINTMENTS.COUNSELOR_TODAY, { headers: createHeaders() });
-      if (res.ok) {
-        const data = await res.json();
-        setTodayAppointments(data.appointments || []);
-        setWaitingClients(data.waiting || []);
-      }
-    } catch (e) { console.error(e); }
-  };
-
-  const loadInitialData = useCallback((role: string) => {
-    const r = role.toLowerCase();
-    if (r === 'client') { setCurrentPage('client-home'); fetchClientData(); }
-    else if (r === 'counselor') { setCurrentPage('counselor-dashboard'); fetchCounselorData(); }
->>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
   }, []);
 
  const hasUpcomingBooking = useMemo(() => {
@@ -392,7 +276,6 @@ export default function App() {
 
         const role = (data.roleName || '').toLowerCase() as UserRole;
         setUserRole(role);
-<<<<<<< HEAD
 
         if (role === 'counselor') {
           loadInitialData(role);
@@ -415,12 +298,6 @@ export default function App() {
           if (role) loadInitialData(role);
         }
 
-=======
-        if(localStorage.getItem('urgency_submitted') !== 'true') setShowUrgency(true);
-        else if (localStorage.getItem('pdpa_accepted') !== 'true') setShowPDPA(true);
-        else if (localStorage.getItem('token_submitted') !== 'true') setShowToken(true);
-        else if (role) loadInitialData(role);
->>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
         setAppState('app');
       } else {
         localStorage.removeItem('token');
@@ -450,7 +327,6 @@ export default function App() {
     checkAuth();
   }, [checkAuth]);
 
-<<<<<<< HEAD
   useEffect(() => {
     if (userRole === 'client' && currentPage === 'client-history') {
       fetchClientHistory();
@@ -494,24 +370,6 @@ export default function App() {
     setShowPDPA(true);
   };
 
-=======
-  const handleUrgencySubmit = async (text: string) => {
-    try {
-      const urgencyValue = text.trim() ? text.trim() : "ไม่ได้ระบุ";
-
-      localStorage.setItem('user_urgency', urgencyValue);
-      localStorage.setItem('urgency_submitted', 'true');
-    
-    alert("บันทึกเรียบร้อยแล้ว");
-  } catch (error: any) {
-    console.error(error);
-    alert("เกิดข้อผิดพลาดในการบันทึก");
-  }
-  };
-
-  
-
->>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
   const handleTokenSubmit = async (code: string) => {
     try {
       const res = await fetch(`${API_BASE_URL}/cases/verify-code`, {
@@ -526,18 +384,10 @@ export default function App() {
       }
 
       setShowToken(false);
-<<<<<<< HEAD
       setIsLoading(true);
       await checkAuth();
     } catch (error: any) {
       alert(error.message || 'รหัสไม่ถูกต้อง');
-=======
-      alert("ลงทะเบียนสำเร็จ! กำลังเข้าสู่ระบบ...");
-      window.location.reload();
-    } catch (error: any) {
-      console.error(error);
-      alert(error.message || "รหัสไม่ถูกต้อง");
->>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
     }
   };
 
@@ -553,7 +403,6 @@ export default function App() {
 
   const renderContent = () => {
     if (!userRole || !userData || showUrgency || showPDPA || showToken) return null;
-<<<<<<< HEAD
 
     if (userRole === 'client') {
       const clientProfile = userData?.clientProfile || {};
@@ -660,34 +509,6 @@ export default function App() {
               hasExistingBooking={hasUpcomingBooking}
             />
           );
-=======
-    if (userRole === 'client') {
-      const clientProfile = userData?.clientProfile || {};
-      const cases = clientProfile.cases || [];
-      const hasCase = cases.length > 0;
-      const shouldShowWaiting = !hasCase && !debugForceShowHome;
-      switch (currentPage) {
-        case 'client-home': return (
-          <ClientHome
-            appointments={appointments}
-            onBookSession={() => setCurrentPage('client-booking')}
-            onViewHistory={() => setCurrentPage('client-history')}
-            isWaitingForQueue={shouldShowWaiting}
-            onDebugSkipWaiting={() => setDebugForceShowHome(true)}
-            hasExistingBooking={hasUpcomingBooking}
-          />
-        );
-        case 'client-booking': return (
-          <BookingPage
-            onBook={() => { fetchClientData(); setCurrentPage('client-history'); }}
-            onNavigateToHistory={() => setCurrentPage('client-history')}
-            hasExistingBooking={hasUpcomingBooking}
-          />
-        );
-        case 'client-history': return <ClientHistory appointments={appointments} />;
-        case 'client-profile': return <ClientProfile profile={{ name: `${userData.firstName} ${userData.lastName}`, email: userData.cmuAccount || '', clientId: userData.clientProfile?.clientId || '', department: userData.ClientProfile?.department || '', phone: userData.phoneNum || '-', enrollmentDate: userData.createdAt ? new Date(userData.createdAt).toLocaleDateString() : '-' }} onSave={() => { }} />;
-        default: return <ClientHome appointments={appointments} onBookSession={() => setCurrentPage('client-booking')} onViewHistory={() => setCurrentPage('client-history')} hasExistingBooking={hasUpcomingBooking} />;
->>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
       }
     }
 
@@ -770,7 +591,6 @@ export default function App() {
         case 'counselor-dashboard':
           return (
             <CounselorDashboard
-<<<<<<< HEAD
               waitingStudents={waitingCases.length > 0 ? waitingCases : undefined}
               todayAppointments={counselorTodayAppointments.length > 0 ? counselorTodayAppointments : undefined}
               totalCasesCount={waitingCases.length}
@@ -813,15 +633,6 @@ export default function App() {
                 } catch (e) {
                   console.error(e);
                 }
-=======
-              waitingClients={waitingClients.length > 0 ? waitingClients : undefined}
-              todayAppointments={todayAppointments.length > 0 ? todayAppointments : undefined}
-              totalCasesCount={128}
-              onGenerateToken={mockGenerateToken}
-              onScheduleAppointment={(id) => {
-                console.log('Scheduling for client:', id);
-                setCurrentPage('counselor-schedule');
->>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
               }}
             />
           );
@@ -832,16 +643,9 @@ export default function App() {
         default:
           return (
             <CounselorDashboard
-<<<<<<< HEAD
               waitingStudents={waitingCases.length > 0 ? waitingCases : undefined}
               todayAppointments={counselorTodayAppointments.length > 0 ? counselorTodayAppointments : undefined}
               totalCasesCount={waitingCases.length}
-=======
-              waitingClients={waitingClients.length > 0 ? waitingClients : undefined}
-              todayAppointments={todayAppointments.length > 0 ? todayAppointments : undefined}
-              totalCasesCount={128}
-              onGenerateToken={mockGenerateToken}
->>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
               onScheduleAppointment={() => setCurrentPage('counselor-schedule')}
               onNavigateToReport={() => setCurrentPage('counselor-report')}
               onApproveWaiting={handleApproveWaiting}
@@ -850,7 +654,6 @@ export default function App() {
           );
       }
     }
-<<<<<<< HEAD
 
     if (userRole === 'admin') {
       const stats = adminStats || {
@@ -876,8 +679,6 @@ export default function App() {
     }
 
     return null;
-=======
->>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
   };
 
   if (isLoading) {
@@ -926,7 +727,6 @@ export default function App() {
       <Layout userRole={userRole} currentPage={currentPage} onNavigate={setCurrentPage} onLogout={handleLogout}>
         {renderContent()}
       </Layout>
-<<<<<<< HEAD
 
       {showUrgency && (
         <UrgencyModal onSubmit={(level: string, details: string) => handleUrgencySubmit(level, details)} />
@@ -950,11 +750,6 @@ export default function App() {
       )}
 
       {showToken && <TokenModal onSubmit={handleTokenSubmit} />}
-=======
-      {showUrgency && <UrgencyModal onSubmit={() =>{handleUrgencySubmit; setShowUrgency(false); setShowPDPA(true);}} />}
-      {showPDPA && <PDPAModal onAccept={() => { localStorage.setItem('pdpa_accepted', 'true'); setShowPDPA(false); setShowToken(true); }} />}
-      {showToken && <TokenModal onSubmit={() =>{handleTokenSubmit; setShowUrgency(false); setShowPDPA(false);setShowToken(false);}} />}
->>>>>>> 5558b0f80c17607581bbe1cdf1acd05cdf7aaa30
     </GoogleOAuthProvider>
   );
 }
