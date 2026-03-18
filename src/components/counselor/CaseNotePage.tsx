@@ -42,8 +42,8 @@ const moodLevels = [
     { value: 1, label: 'ไม่สบายใจอย่างยิ่ง', icon: '😢' },
     { value: 2, label: 'ไม่สบายใจ', icon: '😟' },
     { value: 3, label: 'รู้สึกธรรมดา', icon: '😐' },
-    { value: 4, label: 'พึงพอใจ', icon: '🙂' },
-    { value: 5, label: 'พึงพอใจอย่างยิ่ง', icon: '😊' },
+    { value: 4, label: 'รู้สึกดี', icon: '🙂' },
+    { value: 5, label: 'รู้สึกดีมาก', icon: '😊' },
 ];
 
 const emptyNote = (): CaseRecord => ({
