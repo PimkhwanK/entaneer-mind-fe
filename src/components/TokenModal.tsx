@@ -29,7 +29,7 @@ export function TokenModal({ onSubmit }: TokenModalProps) {
                 </div>
 
                 <p className="mb-6 text-sm text-gray-600 leading-relaxed">
-                    กรุณากรอกรหัส <span className="font-bold text-gray-900">Case Code</span> ที่ได้รับจากพี่ป๊อปผ่าน Facebook เพื่อเริ่มต้นการใช้งานระบบนัดหมาย
+                    กรุณากรอกรหัส <span className="font-bold text-gray-900">Token</span> ที่ได้รับจากพี่ป๊อปผ่าน Facebook เพื่อเริ่มต้นการใช้งานระบบนัดหมาย
                 </p>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
