@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ClockFading , AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ClockFading, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 interface UrgencyModalProps {
     onSubmit: (urgencyLevel: string, urgencyDetails: string) => void;
@@ -11,25 +11,25 @@ export function UrgencyModal({ onSubmit }: UrgencyModalProps) {
     const [error, setError] = useState('');
 
 
-    {/*สำหรับตกแต่งสีของปุ่ม*/}
+    {/*สำหรับตกแต่งสีของปุ่ม*/ }
     const urgencyOptions = [
-       { 
-            id: 'low', 
-            label: 'ไม่รีบ', 
+        {
+            id: 'low',
+            label: 'ไม่รีบ',
             baseStyle: { borderColor: '#E0F2F1', color: '#2E7D32', backgroundColor: '#F1F8F7' },
             activeStyle: { borderColor: '#66BB6A', ringColor: '#E0F2F1' }
         },
-        { 
-            id: 'medium', 
-            label: 'ยังพอไหว', 
+        {
+            id: 'medium',
+            label: 'ยังพอไหว',
             baseStyle: { borderColor: '#FEF08A', color: '#A16207', backgroundColor: '#FEFCE8' },
-            activeStyle: { borderColor: '#EAB308', ringColor: '#FEF9C3' } 
+            activeStyle: { borderColor: '#EAB308', ringColor: '#FEF9C3' }
         },
-        { 
-            id: 'high', 
-            label: 'ไม่ไหวแล้ว', 
+        {
+            id: 'high',
+            label: 'ไม่ไหวแล้ว',
             baseStyle: { borderColor: '#FECACA', color: '#B91C1C', backgroundColor: '#FEF2F2' },
-            activeStyle: { borderColor: '#EF4444', ringColor: '#FEE2E2' } 
+            activeStyle: { borderColor: '#EF4444', ringColor: '#FEE2E2' }
         },
     ];
 
@@ -39,7 +39,7 @@ export function UrgencyModal({ onSubmit }: UrgencyModalProps) {
             setError('กรุณาเลือกระดับความเร่งด่วน');
             return;
         }
-        onSubmit(urgencyLevel,urgencyDetails);
+        onSubmit(urgencyLevel, urgencyDetails);
     };
 
     return (
@@ -69,34 +69,14 @@ export function UrgencyModal({ onSubmit }: UrgencyModalProps) {
                                         backgroundColor: opt.baseStyle.backgroundColor,
                                         boxShadow: isActive ? `0 0 0 4px ${opt.activeStyle.ringColor}` : 'none'
                                     }}
-                                    className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all font-bold ${
-                                        !isActive ? 'opacity-70 grayscale-[0.3]' : 'opacity-100'
-                                    }`}
+                                    className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all font-bold ${!isActive ? 'opacity-70 grayscale-[0.3]' : 'opacity-100'
+                                        }`}
                                 >
                                     {opt.label}
                                     {isActive && <CheckCircle2 className="w-5 h-5" style={{ color: opt.activeStyle.borderColor }} />}
                                 </button>
                             );
                         })}
-                    </div>
-
-                    {/*รายละเอียดเพิ่มเติมเผื่ออยากอธิบายพี่ป๊อบ*/}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            รายละเอียดเพิ่มเติม (ถ้ามี)
-                        </label>
-                        <div className="relative">
-                            <textarea
-                                value={urgencyDetails}
-                                onChange={(e) => {
-                                    setUrgencyDetails(e.target.value);
-                                    if (error) setError('');
-                                }}
-                                placeholder=" "
-                                className="w-full px-4 py-2 rounded-xl border-2 border-gray-100 focus:border-[var(--color-accent-green)] focus:ring-0 transition-all outline-none min-h-[80px] resize-none"
-                            />
-                            
-                        </div>
                     </div>
 
                     {error && (
