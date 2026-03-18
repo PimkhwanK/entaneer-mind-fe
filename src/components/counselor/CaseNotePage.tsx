@@ -39,11 +39,11 @@ interface CaseRecord {
 }
 
 const moodLevels = [
-    { value: 1, label: 'Very Distressed', icon: '😢' },
-    { value: 2, label: 'Distressed', icon: '😟' },
-    { value: 3, label: 'Neutral', icon: '😐' },
-    { value: 4, label: 'Good', icon: '🙂' },
-    { value: 5, label: 'Very Good', icon: '😊' },
+    { value: 1, label: 'ไม่สบายใจอย่างยิ่ง', icon: '😢' },
+    { value: 2, label: 'ไม่สบายใจ', icon: '😟' },
+    { value: 3, label: 'รู้สึกธรรมดา', icon: '😐' },
+    { value: 4, label: 'พึงพอใจ', icon: '🙂' },
+    { value: 5, label: 'พึงพอใจอย่างยิ่ง', icon: '😊' },
 ];
 
 const emptyNote = (): CaseRecord => ({
@@ -84,6 +84,14 @@ export function CaseNotePage() {
     const [showHistory, setShowHistory] = useState(false);
     const [note, setNote] = useState<CaseRecord | null>(null);
     const [lookupLoading, setLookupLoading] = useState(false);
+
+    // เช็คข้อมูลว่าพร้อมบันทึกหรือยัง (ต้องใส่ข้อมูลครบทุกช่อง และมีการเลือก Tag อย่างน้อย 1 อัน)
+    const isFormValid = (note: CaseRecord | null): boolean => !!note &&
+        note?.caseCode?.trim() !== "" &&
+        note?.sessionSummary?.trim() !== "" &&
+        note?.interventions?.trim() !== "" &&
+        note?.followUp?.trim() !== "" &&
+        note?.selectedTags?.length > 0;
 
     const tagIdByLabel = useMemo(() => {
         const map = new Map<string, number>();
@@ -170,7 +178,7 @@ export function CaseNotePage() {
         } catch (e: any) {
             console.error(e);
             setSelectedSessionId(null);
-            setError('ไม่พบ Case Code นี้ หรือไม่ใช่ของผู้ให้คำปรึกษาคนนี้');
+            setError('ไม่พบรหัสเคสนี้ หรือไม่ใช่ของผู้ให้คำปรึกษาคนนี้');
         } finally {
             setLookupLoading(false);
         }
@@ -325,7 +333,7 @@ export function CaseNotePage() {
                 </button>
 
                 <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-800">New Session Record</h1>
+                    <h1 className="text-3xl font-bold text-gray-800">บันทึกการให้คำปรึกษา</h1>
                     <p className="text-gray-500 font-medium mt-1">บันทึกรายละเอียดการให้คำปรึกษาใหม่ตามมาตรฐาน PDPA</p>
                 </div>
 
@@ -350,7 +358,7 @@ export function CaseNotePage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-2">
                                 {/* ✅ Case Code is editable and triggers lookup */}
                                 <div className="space-y-2">
-                                    <label className="text-xs font-black text-gray-400 uppercase ml-1">Case Code</label>
+                                    <label className="text-xs font-black text-gray-400 uppercase ml-1">รหัสเคส</label>
                                     <input
                                         placeholder="เช่น CASE-66-001"
                                         className="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none focus:ring-2 focus:ring-green-500 transition-all font-medium"
@@ -374,7 +382,7 @@ export function CaseNotePage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-xs font-black text-gray-400 uppercase ml-1">Student Name</label>
+                                    <label className="text-xs font-black text-gray-400 uppercase ml-1">ชื่อผู้รับคำปรึกษา</label>
                                     <input
                                         className="w-full p-4 bg-gray-50 rounded-2xl border-none outline-none font-medium"
                                         value={note.studentName}
@@ -386,7 +394,7 @@ export function CaseNotePage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
                                 <div className="space-y-2">
                                     <label className="text-xs font-black text-gray-400 uppercase ml-1 flex items-center gap-1">
-                                        <Calendar className="w-3 h-3" /> Session Date
+                                        <Calendar className="w-3 h-3" />วันที่เข้ารับคำปรึกษา
                                     </label>
                                     <input
                                         type="date"
@@ -398,7 +406,7 @@ export function CaseNotePage() {
 
                                 <div className="space-y-2">
                                     <label className="text-xs font-black text-gray-400 uppercase ml-1 flex items-center gap-1">
-                                        <Clock className="w-3 h-3" /> Session Time
+                                        <Clock className="w-3 h-3" />เวลาที่เข้ารับคำปรึกษา
                                     </label>
                                     <input
                                         type="time"
@@ -410,7 +418,7 @@ export function CaseNotePage() {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-xs font-black text-gray-400 uppercase ml-1">Mood Assessment</label>
+                                <label className="text-xs font-black text-gray-400 uppercase ml-1">การประเมิน Mood</label>
                                 <div className="grid grid-cols-5 gap-3 p-4 bg-gray-50 rounded-2xl">
                                     {moodLevels.map(m => (
                                         <button
@@ -429,7 +437,7 @@ export function CaseNotePage() {
 
                         <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100">
                             <h3 className="text-lg font-bold mb-4 text-gray-700 flex items-center gap-2">
-                                <FileText className="w-5 h-5 text-green-500" /> Session Summary (Keywords)
+                                <FileText className="w-5 h-5 text-green-500" /> สรุปเซสชัน (คีย์เวิร์ดหรือประเด็นสำคัญ)
                             </h3>
                             <textarea
                                 rows={6}
@@ -442,11 +450,11 @@ export function CaseNotePage() {
 
                         <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100">
                             <h3 className="text-lg font-bold mb-4 text-gray-700 flex items-center gap-2">
-                                <MessageSquare className="w-5 h-5 text-blue-500" /> Interventions Applied
+                                <MessageSquare className="w-5 h-5 text-blue-500" /> กิจกรรมหรือคำแนะนำที่มอบให้
                             </h3>
                             <textarea
                                 rows={3}
-                                placeholder="ระบุกิจกรรมหรือคำแนะนำที่ให้แก่นักศึกษา..."
+                                placeholder="ระบุกิจกรรมหรือคำแนะนำที่ให้แก่ผู้รับคำปรึกษา..."
                                 className="w-full p-5 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-green-500 outline-none resize-none font-medium"
                                 value={note.interventions}
                                 onChange={(e) => setNote({ ...note, interventions: e.target.value })}
@@ -455,11 +463,11 @@ export function CaseNotePage() {
 
                         <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100">
                             <h3 className="text-lg font-bold mb-4 text-gray-700 flex items-center gap-2">
-                                <ClipboardCheck className="w-5 h-5 text-amber-500" /> Follow-up Plan
+                                <ClipboardCheck className="w-5 h-5 text-amber-500" /> แผนการติดตามผล
                             </h3>
                             <textarea
                                 rows={3}
-                                placeholder="สิ่งที่นัดหมายครั้งหน้า หรือสิ่งที่นักศึกษาต้องนำไปฝึกฝน..."
+                                placeholder="สิ่งที่นัดหมายครั้งหน้า หรือสิ่งที่ผู้รับคำปรึกษาต้องนำไปฝึกฝน..."
                                 className="w-full p-5 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-green-500 outline-none resize-none font-medium"
                                 value={note.followUp}
                                 onChange={(e) => setNote({ ...note, followUp: e.target.value })}
@@ -471,7 +479,7 @@ export function CaseNotePage() {
                     <div className="space-y-6">
                         <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm">
                             <h3 className="font-bold mb-4 text-gray-700 flex items-center gap-2">
-                                <Tag className="w-4 h-4" /> Problem Tags
+                                <Tag className="w-4 h-4" /> Tags ปัญหาที่เกี่ยวข้อง
                             </h3>
 
                             {/* selected tags */}
@@ -535,7 +543,7 @@ export function CaseNotePage() {
                                 <ShieldCheck className="w-6 h-6" />
                             </div>
                             <div className="flex-1">
-                                <p className="text-xs font-black uppercase tracking-tight">PDPA Consent</p>
+                                <p className="text-xs font-black uppercase tracking-tight">ความยินยอมตามกฎหมาย PDPA</p>
                                 <p className="text-sm font-bold mt-1">
                                     {note.consentSigned ? 'Signed & Verified' : 'Not Signed'}
                                 </p>
@@ -544,9 +552,10 @@ export function CaseNotePage() {
 
                         <button
                             onClick={handleSave}
+                            disabled={!isFormValid(note)}
                             className="w-full py-5 bg-green-500 text-white rounded-[1.5rem] font-black text-lg shadow-xl shadow-green-200 hover:bg-green-600 hover:-translate-y-1 transition-all active:scale-95 flex items-center justify-center gap-3"
                         >
-                            <Save className="w-5 h-5" /> Save Case Note
+                            <Save className="w-5 h-5" /> บันทึกโน๊ต
                         </button>
 
                         {/* ── Edit History ── */}
@@ -618,7 +627,7 @@ export function CaseNotePage() {
         <div className="p-8 max-w-6xl mx-auto font-sans bg-[#FBFBFB] min-h-screen">
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
                 <div>
-                    <h1 className="text-3xl font-black text-gray-800 tracking-tight">Case Management</h1>
+                    <h1 className="text-3xl font-black text-gray-800 tracking-tight">ระบบจัดการบันทึก</h1>
                     <p className="text-gray-500 font-medium">ศูนย์กลางจัดการบันทึกและสถิติภาพรวม</p>
                 </div>
 
@@ -632,7 +641,7 @@ export function CaseNotePage() {
                     }}
                     className="flex items-center gap-2 px-8 py-4 bg-green-500 text-white rounded-[1.25rem] font-black shadow-lg shadow-green-200 hover:bg-green-600 hover:-translate-y-1 transition-all"
                 >
-                    <Plus className="w-5 h-5" /> New Case Note
+                    <Plus className="w-5 h-5" /> เพิ่มโน๊ตใหม่
                 </button>
             </header>
 
@@ -671,7 +680,7 @@ export function CaseNotePage() {
 
                 <div className="flex bg-white border border-gray-100 rounded-2xl p-1 shadow-sm">
                     <button className="flex-1 rounded-xl bg-gray-50 text-green-600 font-black text-xs flex items-center justify-center gap-2 transition-all">
-                        <ListIcon className="w-4 h-4" /> List
+                        <ListIcon className="w-4 h-4" /> ตารางรายการ
                     </button>
                 </div>
             </div>
@@ -680,17 +689,17 @@ export function CaseNotePage() {
                 <table className="w-full text-left">
                     <thead className="bg-gray-50/70">
                         <tr>
-                            <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Student / Case Code</th>
-                            <th className="px-6 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Last Session</th>
+                            <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">ชื่อผู้รับคำปรึกษา / รหัสเคส</th>
+                            <th className="px-6 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">การเข้ารับคำปรึกษาล่าสุด</th>
                             <th className="px-6 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Mood</th>
-                            <th className="px-6 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Issues</th>
+                            <th className="px-6 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">ปัญหาฯ</th>
                             <th className="px-6 py-6"></th>
                         </tr>
                     </thead>
 
                     <tbody className="divide-y divide-gray-50">
                         {isLoading ? (
-                            <tr><td colSpan={5} className="p-10 text-center text-gray-400">Loading case records...</td></tr>
+                            <tr><td colSpan={5} className="p-10 text-center text-gray-400">กำลังโหลดข้อมูลโน๊ต...</td></tr>
                         ) : filteredRecords.map((c) => (
                             <tr
                                 key={c.id}
@@ -756,7 +765,7 @@ export function CaseNotePage() {
                     <ShieldCheck className="w-6 h-6" />
                 </div>
                 <p className="text-xs text-amber-800 leading-relaxed font-medium">
-                    <strong className="block mb-0.5">Confidentiality & Compliance</strong>
+                    <strong className="block mb-0.5">การรักษาความลับ และ การปฏิบัติตามกฎระเบียบ</strong>
                     ข้อมูลทั้งหมดถูกจัดเก็บภายใต้มาตรฐานความปลอดภัยระดับสูงและใช้เพื่อการสรุปสถิติภาพรวม (Reporting) เท่านั้น
                 </p>
             </div>

@@ -417,7 +417,7 @@ export function ManageSchedule({
                             <div>
                                 <label className="flex items-center gap-1.5 text-sm font-medium text-gray-600 mb-1.5">
                                     <User className="w-4 h-4" />
-                                    Counselor เจ้าของห้อง
+                                    ผู้ให้คำปรึกษาที่เป็นเจ้าของห้อง
                                 </label>
                                 <select
                                     value={selectedCounselorId}
@@ -438,7 +438,7 @@ export function ManageSchedule({
 
                                 {counselors.length === 0 && (
                                     <p className="text-xs text-gray-400 mt-1">
-                                        ไม่พบ counselor ในระบบ
+                                        ไม่พบผู้ให้คำปรึกษาในระบบ
                                     </p>
                                 )}
                             </div>
